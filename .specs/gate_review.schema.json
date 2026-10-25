@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Gate Review Schema",
+  "type": "object",
+  "properties": {
+    "gate_id": {
+      "type": "string"
+    },
+    "requirement_id": {
+      "type": "string"
+    },
+    "reviewer_persona": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["APPROVED", "REJECTED"]
+    },
+    "design_flaws": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2
+    },
+    "test_design_flaws": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2
+    },
+    "accepted_tradeoffs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "gate_id",
+    "requirement_id",
+    "reviewer_persona",
+    "status",
+    "design_flaws",
+    "test_design_flaws",
+    "accepted_tradeoffs",
+    "reviewed_at"
+  ]
+}
