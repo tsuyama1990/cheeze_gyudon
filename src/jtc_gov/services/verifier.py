@@ -2,7 +2,11 @@ import json
 from typing import Any
 
 from jtc_gov.domain.exceptions import UnauthorizedFileAccessError
-from jtc_gov.services.state_engine import is_path_unlocked, read_state
+from jtc_gov.services.state_engine import (
+    get_active_requirement,
+    is_path_unlocked,
+    read_state,
+)
 
 
 def verify_tool(tool_name: str, input_json: str) -> None:
@@ -35,12 +39,7 @@ def verify_tool(tool_name: str, input_json: str) -> None:
         raise UnauthorizedFileAccessError(msg)
 
     state = read_state()
-    active_req_id = state.active_requirement_id
-    if active_req_id not in state.requirements:
-        msg = f"Active requirement '{active_req_id}' not found in state."
-        raise UnauthorizedFileAccessError(msg)
-
-    active_req = state.requirements[active_req_id]
+    active_req = get_active_requirement(state, UnauthorizedFileAccessError)
 
     if not is_path_unlocked(target_path, active_req.unlocked_paths):
         msg = (

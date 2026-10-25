@@ -1,9 +1,15 @@
 import json
 from pathlib import Path
+from typing import Any
 
 from jtc_gov.domain.exceptions import GateCheckFailedError
-from jtc_gov.domain.models import GateId, GateReviewDeliverable, StateModel
-from jtc_gov.services.state_engine import read_state, write_state
+from jtc_gov.domain.models import GateId, GateReviewDeliverable, RequirementStatus, StateModel
+from jtc_gov.services.state_engine import (
+    get_active_requirement,
+    read_state,
+    update_requirement,
+    write_state,
+)
 
 
 def _validate_pair_deliverables(gate_id: GateId, spec_dir: Path) -> None:
@@ -63,20 +69,14 @@ def _advance_state(state: StateModel, active_req_id: str, gate_id: GateId) -> No
     # Unlock paths for next gate
     next_unlocked_paths = get_unlocked_paths_for_gate(next_gate, active_req_id)
 
-    # Update requirement item
-    req_dict = active_req.model_dump()
-    req_dict["current_gate"] = next_gate
-    req_dict["completed_gates"] = new_completed
-    req_dict["unlocked_paths"] = next_unlocked_paths
-    if next_gate == GateId.GATE5_IMPL and gate_id == GateId.GATE5_IMPL:
-        req_dict["status"] = "COMPLETED"
-
-    # Update state
-    state_dict = state.model_dump()
-    state_dict["requirements"][active_req_id] = req_dict
-
-    new_state = StateModel.model_validate(state_dict)
-    write_state(new_state)
+    changes: dict[str, Any] = {
+        "current_gate": next_gate,
+        "completed_gates": new_completed,
+        "unlocked_paths": next_unlocked_paths,
+    }
+    if gate_id == GateId.GATE5_IMPL:
+        changes["status"] = RequirementStatus.COMPLETED
+    write_state(update_requirement(state, active_req_id, **changes))
 
 
 def validate_gate(gate_id: GateId) -> None:
@@ -87,11 +87,7 @@ def validate_gate(gate_id: GateId) -> None:
     state = read_state()
     active_req_id = state.active_requirement_id
 
-    if active_req_id not in state.requirements:
-        msg = f"Active requirement '{active_req_id}' not found."
-        raise GateCheckFailedError(msg)
-
-    active_req = state.requirements[active_req_id]
+    active_req = get_active_requirement(state, GateCheckFailedError)
 
     if active_req.current_gate != gate_id:
         msg = f"Cannot validate {gate_id.value}: current gate is {active_req.current_gate.value}"

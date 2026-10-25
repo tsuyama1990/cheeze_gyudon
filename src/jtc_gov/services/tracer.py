@@ -66,8 +66,8 @@ def _process_decorator(decorator: ast.expr, found_reqs: set[str]) -> None:
 
 def verify_traceability() -> None:
     """
-    Verifies that all requirements defined in the active requirement spec
-    are covered by tests, and all test requirements are defined in the spec.
+    Verifies that all feature tags (REQ-xxx-Fnn) of the active requirement defined in its
+    spec are covered by tests, and vice versa. Tags of other requirements are ignored.
     """
     state = read_state()
     active_id = state.active_requirement_id
@@ -80,8 +80,9 @@ def verify_traceability() -> None:
         msg = f"Spec file {spec_path} does not exist."
         raise TraceabilityMismatchError(msg)
 
-    spec_reqs = extract_requirements_from_spec(spec_path)
-    test_reqs = extract_requirements_from_tests(tests_dir)
+    feature_tag = re.compile(rf"{re.escape(active_id)}-F\d{{2,}}")
+    spec_reqs = {r for r in extract_requirements_from_spec(spec_path) if feature_tag.fullmatch(r)}
+    test_reqs = {r for r in extract_requirements_from_tests(tests_dir) if feature_tag.fullmatch(r)}
 
     missing_in_tests = spec_reqs - test_reqs
     missing_in_spec = test_reqs - spec_reqs

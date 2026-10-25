@@ -9,12 +9,13 @@ import pytest
 from click.testing import CliRunner
 
 from jtc_gov.cli import main
+from jtc_gov.domain.exceptions import TraceabilityMismatchError
 from jtc_gov.integrations.github.action_runner import run_action
 from jtc_gov.integrations.github.pr_formatter import format_audit_comment
 from jtc_gov.integrations.github.summary_generator import generate_pr_summary
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_review_json(tmp_path: Path) -> Path:
     """Fixture to provide a mock gate_review.json."""
     data = {
@@ -36,7 +37,7 @@ def mock_review_json(tmp_path: Path) -> Path:
     return file_path
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_decision_json(tmp_path: Path) -> Path:
     """Fixture to provide a mock 05_decision.md/json."""
     data = {
@@ -50,7 +51,7 @@ def mock_decision_json(tmp_path: Path) -> Path:
     return file_path
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_feature_file(tmp_path: Path) -> Path:
     """Fixture to provide a mock feature file."""
     content = (
@@ -151,13 +152,21 @@ def test_cli_format_pr_summary(mock_decision_json: Path, mock_feature_file: Path
 
 
 @pytest.mark.requirement("REQ-2026-003-F02")
-def test_cli_ci_verify() -> None:
-    """Test ci-verify CLI command."""
+def test_cli_ci_verify(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ci-verify passes when traceability holds and fails when it does not."""
     runner = CliRunner()
+    monkeypatch.setattr("jtc_gov.cli.verify_traceability", lambda: None)
     result = runner.invoke(main, ["ci-verify"])
     assert result.exit_code == 0
     assert "Running CI Verification..." in result.output
-    assert "[GOV] Traceability check passed." in result.output
+    assert "Traceability check passed." in result.output
+
+    def mismatch() -> None:
+        msg = "mismatch"
+        raise TraceabilityMismatchError(msg)
+
+    monkeypatch.setattr("jtc_gov.cli.verify_traceability", mismatch)
+    assert runner.invoke(main, ["ci-verify"]).exit_code == 1
 
 
 @pytest.mark.requirement("REQ-2026-003-F03")

@@ -29,16 +29,13 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync
 
       - name: Run CI Verification Suite
         run: uv run gov ci-verify
 
       - name: Run Full Quality & Governance Suite
         run: bash scripts/verify_all.sh
-
-      - name: Traceability Check
-        run: uv run gov trace-check
 
       - name: Enforce Human Sign-off
         run: |

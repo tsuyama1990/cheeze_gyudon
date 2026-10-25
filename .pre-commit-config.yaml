@@ -21,15 +21,19 @@ repos:
       - id: no-commit-to-branch
         args: ['--branch', 'main', '--branch', 'master']
 
-  # 2. Ruff (Lightning Fast Ultra-Strict Linter & Formatter)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
+  # 2. Ruff (project-pinned version via uv, so hook and CI agree)
+  - repo: local
     hooks:
-      # Linter with automatic fixes where safe
       - id: ruff
-        args: [--fix]
-      # Formatter
+        name: "ruff (lint)"
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
       - id: ruff-format
+        name: "ruff (format)"
+        entry: uv run ruff format
+        language: system
+        types: [python]
 
   # 3. Mypy (Ultra-Strict Type Checking via local uv environment)
   - repo: local
