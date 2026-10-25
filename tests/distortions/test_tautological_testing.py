@@ -22,7 +22,13 @@ def test_tautological_testing_interception(tmp_path: Path, monkeypatch: pytest.M
     state_data = {
         "active_requirement_id": "REQ-123",
         "requirements": {
-            "REQ-123": {"current_gate": "GATE1_SPEC", "unlocked_paths": [".specs/REQ-123/*"]}
+            "REQ-123": {
+                "title": "t",
+                "current_gate": "GATE1_SPEC",
+                "status": "IN_PROGRESS",
+                "unlocked_paths": [".specs/REQ-123/*"],
+                "completed_gates": [],
+            }
         },
     }
     state_file.write_text(json.dumps(state_data))

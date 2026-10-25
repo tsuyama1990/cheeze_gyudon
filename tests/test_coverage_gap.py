@@ -1,6 +1,6 @@
 import contextlib
 
-# ruff: noqa: E501, PLR0915, PLC0415, ARG005, ARG001
+# ruff: noqa: E501, PLR0915, ARG005
 import sys
 from pathlib import Path
 from typing import Any
@@ -59,9 +59,6 @@ def test_cli_coverage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(main, ["gate-check", "--gate", "2"])
     assert result.exit_code == 1
 
-    result = runner.invoke(main, ["approve-decision"])
-    assert result.exit_code == 1
-
     result = runner.invoke(main, ["escalate", "--gate", "1", "--reason", "test"])
     assert result.exit_code == 1
 
@@ -76,12 +73,9 @@ def test_cli_coverage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 1
 
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE3_SPEC"}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE3_INTEGRATION", "status": "IN_PROGRESS", "unlocked_paths": [], "completed_gates": []}}}'
     )
     result = runner.invoke(main, ["gate-check", "--gate", "2"])
-    assert result.exit_code == 1
-
-    result = runner.invoke(main, ["approve-decision"])
     assert result.exit_code == 1
 
     # Extract file coverage
@@ -93,27 +87,18 @@ def test_cli_coverage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(main, ["status"])
 
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE3_SPEC"}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE3_INTEGRATION", "status": "IN_PROGRESS", "unlocked_paths": [], "completed_gates": []}}}'
     )
     result = runner.invoke(main, ["status"])
 
 
 def test_is_path_unlocked() -> None:
-    from jtc_gov.cli import is_path_unlocked
+    from jtc_gov.services.state_engine import is_path_unlocked
 
     assert is_path_unlocked("dir/file.txt", ["dir/*"])
     assert not is_path_unlocked("dir/file.txt", ["other/*"])
     assert is_path_unlocked("./dir/file.txt", ["dir/*"])
     assert is_path_unlocked("dir\\file.txt", ["dir/*"])
-
-
-def test_extract_target_file() -> None:
-    from jtc_gov.cli import extract_target_file
-
-    assert extract_target_file(None, "file.txt") == "file.txt"
-    assert extract_target_file(None, None) is None
-    assert extract_target_file('{"file_path": "test.txt"}', None) == "test.txt"
-    assert extract_target_file('{"invalid json', None) is None
 
 
 def test_verify_tool_coverage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -131,7 +116,7 @@ def test_verify_tool_coverage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert result.exit_code == 1
 
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE1_SPEC", "unlocked_paths": ["test.py"]}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE1_SPEC", "status": "IN_PROGRESS", "unlocked_paths": ["test.py"], "completed_gates": []}}}'
     )
     result = runner.invoke(main, ["verify-tool", "--file", "test.py"])
     assert result.exit_code == 0
@@ -163,27 +148,29 @@ def test_cli_coverage_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
     # Gate checks successful runs (mocked state)
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE1_SPEC"}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE1_SPEC", "status": "IN_PROGRESS", "unlocked_paths": [], "completed_gates": []}}}'
     )
+    spec_dir = Path(".specs/REQ-1")
+    spec_dir.mkdir()
+    (spec_dir / "01_req_spec.md").write_text("spec")
+    (spec_dir / "01_acceptance_tests.feature").write_text("feature")
     result = runner.invoke(main, ["gate-check", "--gate", "1"])
     assert result.exit_code == 0
 
+    (spec_dir / "04_detail_design.md").write_text("design")
+    (spec_dir / "05_decision.md").write_text("HUMAN_SIGN_OFF: APPROVED")
+    Path("tests").mkdir()
+    Path("tests/test_x.py").write_text("")
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE4_SPEC"}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE4_DETAIL", "status": "IN_PROGRESS", "unlocked_paths": [], "completed_gates": []}}}'
     )
     result = runner.invoke(main, ["gate-check", "--gate", "4"])
     assert result.exit_code == 0
 
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE5_IMPLEMENTATION"}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE5_IMPL", "status": "IN_PROGRESS", "unlocked_paths": [], "completed_gates": []}}}'
     )
     result = runner.invoke(main, ["gate-check", "--gate", "5"])
-    assert result.exit_code == 0
-
-    Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE4.5_DECISION"}}}'
-    )
-    result = runner.invoke(main, ["approve-decision"])
     assert result.exit_code == 0
 
     # Catch OS/JSON decode errors in process state
@@ -194,22 +181,19 @@ def test_cli_coverage_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
     import json
 
-    monkeypatch.setattr(json, "loads", mock_loads)
-    result = runner.invoke(main, ["gate-check", "--gate", "1"])
-    assert result.exit_code == 1
+    with monkeypatch.context() as patch:
+        patch.setattr(json, "loads", mock_loads)
+        result = runner.invoke(main, ["gate-check", "--gate", "1"])
+        assert result.exit_code == 1
 
-    result = runner.invoke(main, ["approve-decision"])
-    assert result.exit_code == 1
+        result = runner.invoke(main, ["escalate", "--gate", "1", "--reason", "test"])
+        assert result.exit_code == 1
 
-    result = runner.invoke(main, ["escalate", "--gate", "1", "--reason", "test"])
-    assert result.exit_code == 1
+        result = runner.invoke(main, ["status"])
+        assert result.exit_code == 1  # corrupted state is reported, not swallowed
 
-    result = runner.invoke(main, ["status"])
-    assert result.exit_code == 0
-
-    monkeypatch.undo()  # Unmock json
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE5_IMPLEMENTATION"}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE5_IMPL", "status": "IN_PROGRESS", "unlocked_paths": [], "completed_gates": []}}}'
     )
     result = runner.invoke(main, ["escalate", "--gate", "1", "--reason", "test"])
     assert result.exit_code == 0

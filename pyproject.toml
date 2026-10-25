@@ -14,7 +14,7 @@ dependencies = [
     "pyyaml>=6.0.1",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     # Ultra-Strict Linting & Formatting
     "ruff>=0.4.4",
@@ -66,6 +66,8 @@ ignore = [
 "tests/**/*" = [
     "S101",    # assert allowed in tests
     "PLR2004", # magic value comparisons allowed in tests
+    "ARG001",  # pytest fixtures requested for their side effects
+    "PLC0415", # imports inside tests that patch module state
     "S105",    # mock passwords allowed in tests
     "S106",    # mock passwords allowed in tests
 ]

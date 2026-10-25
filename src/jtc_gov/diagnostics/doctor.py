@@ -52,9 +52,9 @@ def _check_latency() -> bool:
     """Verify PreToolUse hook execution latency."""
     start_time = time.time()
     try:
-        from jtc_gov.cli import extract_target_file
+        from jtc_gov.services.state_engine import is_path_unlocked
 
-        _ = extract_target_file(None, None)
+        _ = is_path_unlocked("", [])
         latency = (time.time() - start_time) * 1000
     except Exception as e:  # noqa: BLE001
         click.secho(f"  [FAIL] PreToolUse hook execution failed: {e}", fg="red")

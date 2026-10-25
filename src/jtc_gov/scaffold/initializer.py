@@ -3,26 +3,32 @@
 import json
 from pathlib import Path
 
+from jtc_gov.domain.models import GateId, RequirementItem, RequirementStatus, StateModel
+from jtc_gov.services.gate_keeper import get_unlocked_paths_for_gate
+from jtc_gov.services.state_engine import write_state
 
-def init_project(preset: str = "solo", ci: str | None = None) -> None:
+INITIAL_REQUIREMENT_ID = "REQ-INIT-001"
+
+
+def init_project(ci: str | None = None) -> None:
     """Initialize governance structures for the project."""
     # 1. Scaffold .specs/ with canonical state.json
     specs_dir = Path(".specs")
     specs_dir.mkdir(exist_ok=True)
-    state_file = specs_dir / "state.json"
 
-    # Initialize basic state machine structure
-    state_data = {
-        "active_requirement_id": "REQ-INIT-001",
-        "requirements": {
-            "REQ-INIT-001": {
-                "current_gate": "GATE1_SPEC",
-                "unlocked_paths": [".specs/REQ-INIT-001/*", "doc/*"],
-            }
-        },
-        "preset": preset,
-    }
-    state_file.write_text(json.dumps(state_data, indent=2) + "\n", encoding="utf-8")
+    requirement = RequirementItem(
+        title="Initial requirement",
+        current_gate=GateId.GATE1_SPEC,
+        status=RequirementStatus.INIT,
+        unlocked_paths=get_unlocked_paths_for_gate(GateId.GATE1_SPEC, INITIAL_REQUIREMENT_ID),
+        completed_gates=[],
+    )
+    write_state(
+        StateModel(
+            active_requirement_id=INITIAL_REQUIREMENT_ID,
+            requirements={INITIAL_REQUIREMENT_ID: requirement},
+        )
+    )
 
     # 2. Deploy .agent/settings.json configuring real-time PreToolUse hook
     agent_dir = Path(".agent")

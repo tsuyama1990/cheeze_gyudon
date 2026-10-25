@@ -8,10 +8,9 @@ from click.testing import CliRunner
 
 from jtc_gov import __version__
 from jtc_gov.cli import (
-    extract_target_file,
-    is_path_unlocked,
     main,
 )
+from jtc_gov.services.state_engine import is_path_unlocked
 
 
 @pytest.mark.requirement("REQ-INIT-001")
@@ -50,24 +49,13 @@ def test_is_path_unlocked() -> None:
 
 
 @pytest.mark.requirement("REQ-INIT-001")
-def test_extract_target_file() -> None:
-    """Verify file extraction from various input formats."""
-    assert extract_target_file(None, "direct_file.py") == "direct_file.py"
-    assert extract_target_file('{"file_path": "path/to/file.py"}', None) == "path/to/file.py"
-    assert extract_target_file('{"target_file": "path/to/target.py"}', None) == "path/to/target.py"
-    assert extract_target_file("invalid json", None) is None
-    assert extract_target_file("[]", None) is None
-    assert extract_target_file(None, None) is None
-
-
-@pytest.mark.requirement("REQ-INIT-001")
 def test_verify_tool_allowed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify verify-tool allows unlocked path."""
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
     Path(".specs").mkdir()
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE1_SPEC", "unlocked_paths": ["README.md"]}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE1_SPEC", "status": "IN_PROGRESS", "unlocked_paths": ["README.md"], "completed_gates": []}}}'
     )
     result = runner.invoke(main, ["verify-tool", "--file", "README.md"])
     assert result.exit_code == 0
@@ -80,7 +68,7 @@ def test_verify_tool_denied(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     runner = CliRunner()
     Path(".specs").mkdir()
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE1_SPEC", "unlocked_paths": ["README.md"]}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE1_SPEC", "status": "IN_PROGRESS", "unlocked_paths": ["README.md"], "completed_gates": []}}}'
     )
     result = runner.invoke(main, ["verify-tool", "--file", "src/forbidden.py"])
     assert result.exit_code == 1
@@ -94,7 +82,7 @@ def test_verify_tool_via_json_input(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     runner = CliRunner()
     Path(".specs").mkdir()
     Path(".specs/state.json").write_text(
-        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE1_SPEC", "unlocked_paths": ["README.md"]}}}'
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE1_SPEC", "status": "IN_PROGRESS", "unlocked_paths": ["README.md"], "completed_gates": []}}}'
     )
     result = runner.invoke(
         main,
@@ -119,3 +107,51 @@ def test_verify_tool_missing_state(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     runner = CliRunner()
     result = runner.invoke(main, ["verify-tool", "--file", "any_file.py"])
     assert result.exit_code == 0
+
+
+@pytest.mark.requirement("REQ-INIT-001")
+def test_is_path_unlocked_absolute_allowed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Absolute paths inside the root that match a pattern are allowed."""
+    monkeypatch.chdir(tmp_path)
+    target = str(tmp_path / "doc" / "notes.md")
+    assert is_path_unlocked(target, ["doc/*"]) is True
+
+
+@pytest.mark.requirement("REQ-INIT-001")
+def test_is_path_unlocked_absolute_locked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Absolute paths inside the root that do not match are denied."""
+    monkeypatch.chdir(tmp_path)
+    target = str(tmp_path / "src" / "module.py")
+    assert is_path_unlocked(target, ["doc/*"]) is False
+
+
+@pytest.mark.requirement("REQ-INIT-001")
+def test_is_path_unlocked_outside_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Paths outside the project root are always denied."""
+    monkeypatch.chdir(tmp_path)
+    outside = str(tmp_path.parent / "elsewhere" / "file.py")
+    assert is_path_unlocked(outside, ["*"]) is False
+
+
+@pytest.mark.requirement("REQ-INIT-001")
+def test_is_path_unlocked_traversal_denied(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`..` traversal escaping the root is denied even if a glob would match."""
+    monkeypatch.chdir(tmp_path)
+    assert is_path_unlocked("../secret.py", ["*"]) is False
+
+
+@pytest.mark.requirement("REQ-INIT-001")
+def test_verify_tool_notebook_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """verify-tool resolves notebook_path from tool input JSON."""
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+    Path(".specs").mkdir()
+    Path(".specs/state.json").write_text(
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"title": "t", "current_gate": "GATE1_SPEC", "status": "IN_PROGRESS", "unlocked_paths": ["README.md"], "completed_gates": []}}}'
+    )
+    result = runner.invoke(
+        main,
+        ["verify-tool", "--tool", "NotebookEdit", "--input", '{"notebook_path": "src/nb.ipynb"}'],
+    )
+    assert result.exit_code == 1
+    assert "Access denied" in result.output
