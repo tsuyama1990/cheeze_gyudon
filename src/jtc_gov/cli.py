@@ -94,9 +94,9 @@ def gate_check(gate: int) -> None:
     _process_state_file(lambda data, req_id: _promote_gate(data, gate, req_id))
 
 
-@main.command(name="draft-decision")
-def draft_decision() -> None:
-    """Generate Tri-Polar decision and add sign-off."""
+@main.command(name="approve-decision")
+def approve_decision() -> None:
+    """Record sign-off and unlock src/ (Gate 4.5 -> Gate 5)."""
 
     def action(data: dict[str, Any], req_id: str) -> None:
         req_data = data.get("requirements", {}).get(req_id, {})

@@ -7,7 +7,7 @@ import pytest
 from click.testing import CliRunner
 
 from jtc_gov.cli import (
-    draft_decision,
+    approve_decision,
     escalate,
     gate_check,
     init,
@@ -61,8 +61,8 @@ def test_full_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     state_data = json.loads(Path(".specs/state.json").read_text(encoding="utf-8"))
     assert state_data["requirements"]["REQ-INIT-001"]["current_gate"] == "GATE4.5_DECISION"
 
-    # 6. Generate Tri-Polar decision: gov draft-decision
-    result = runner.invoke(draft_decision)
+    # 6. Generate Tri-Polar decision: gov approve-decision
+    result = runner.invoke(approve_decision)
     assert result.exit_code == 0
     assert "Decision approved. Promoted to GATE5_IMPLEMENTATION. src/ is unlocked." in result.output
 
