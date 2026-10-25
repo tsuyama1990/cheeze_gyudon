@@ -1,0 +1,63 @@
+# See https://pre-commit.com for more information
+# ==============================================================================
+# Ultra-Strict Local Governance Hooks (Layer 4 & Layer 5 Local Gatekeeper)
+# ==============================================================================
+default_language_version:
+  python: python3.11
+
+repos:
+  # 1. Basic Hygiene & Format Consistency
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+
+  # 2. Ruff (Lightning Fast Ultra-Strict Linter & Formatter)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      # Linter with automatic fixes where safe
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # Formatter
+      - id: ruff-format
+
+  # 3. Mypy (Ultra-Strict Type Checking)
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.7.0
+          - pydantic-settings>=2.2.0
+          - types-PyYAML
+          - pytest>=8.2.0
+        args: [--strict, --config-file=pyproject.toml]
+
+  # 4. Dead Code Eradication (Vulture)
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.11
+    hooks:
+      - id: vulture
+        args: [src, --min-confidence, "80"]
+
+  # 5. Copy-Paste / Duplicate Code Blocking (jscpd)
+  - repo: https://github.com/kucherenko/jscpd
+    rev: 3.5.9
+    hooks:
+      - id: jscpd
+        args:
+          - --threshold
+          - "0"
+          - --min-tokens
+          - "40"
+          - --pattern
+          - "src/**/*.py"

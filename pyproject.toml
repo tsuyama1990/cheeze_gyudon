@@ -1,0 +1,171 @@
+[project]
+name = "cheeze-gyudon"
+version = "0.1.0"
+description = "AI-Driven Development Governance Framework (JTC-Style Governance Platform)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "tomoyuki" }]
+dependencies = [
+    "click>=8.1.7",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+    "jsonschema>=4.22.0",
+    "pyyaml>=6.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Ultra-Strict Linting & Formatting
+    "ruff>=0.4.4",
+    # Ultra-Strict Static Type Checking
+    "mypy>=1.10.0",
+    "pyright>=1.1.363",
+    # Testing & Branch Coverage
+    "pytest>=8.2.0",
+    "pytest-cov>=5.0.0",
+    "diff-cover>=9.0.0",
+    # Dead Code & Code Quality
+    "vulture>=2.11",
+    "pre-commit>=3.7.1",
+]
+
+[project.scripts]
+gov = "jtc_gov.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ==============================================================================
+# 1. RUFF (Ultra-Strict Linter & Formatter)
+# ==============================================================================
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Enable ALL rules by default, then selectively ignore only mutually exclusive ones
+select = [
+    "ALL",
+]
+ignore = [
+    "D",       # pydocstyle (enforce docs via markdown/specs, not verbose docstrings everywhere)
+    "COM812",  # Trailing comma missing (conflicts with ruff format)
+    "ISC001",  # Implicit string concatenation (conflicts with ruff format)
+    "CPY",     # Copyright notice missing at top of file
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = [
+    "S101",    # assert allowed in tests
+    "PLR2004", # magic value comparisons allowed in tests
+    "S105",    # mock passwords allowed in tests
+    "S106",    # mock passwords allowed in tests
+]
+
+[tool.ruff.lint.mccabe]
+# Strict Cyclomatic Complexity ceiling: Max 10 per function to block AI spaghetti
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-branches = 10
+max-returns = 5
+max-statements = 30
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# ==============================================================================
+# 2. MYPY (Ultra-Strict Static Type Checker)
+# ==============================================================================
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
+
+# ==============================================================================
+# 3. PYRIGHT (Strict Mode for IDE / Real-time Tool Verification)
+# ==============================================================================
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+reportMissingTypeStubs = true
+reportUnknownVariableType = true
+reportUnknownMemberType = true
+reportUnknownArgumentType = true
+reportUnknownParameterType = true
+reportAny = true
+reportImplicitStringConcatenation = true
+reportUnusedImport = true
+reportUnusedVariable = true
+reportDuplicateImport = true
+
+# ==============================================================================
+# 4. PYTEST & COVERAGE (Strict Branch Coverage)
+# ==============================================================================
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=xml:coverage.xml",
+    "--cov-fail-under=90",
+]
+markers = [
+    "requirement: link test to specific specification requirement ID (e.g. @pytest.mark.requirement('REQ-xxx'))",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "tests/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+# ==============================================================================
+# 5. VULTURE (Dead Code Eradication)
+# ==============================================================================
+[tool.vulture]
+min_confidence = 80
+paths = ["src"]
+exclude = [".venv", "build", "dist"]
+sort_by_size = true
