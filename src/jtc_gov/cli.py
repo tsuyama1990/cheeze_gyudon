@@ -14,6 +14,8 @@ from jtc_gov.domain.exceptions import (
     TraceabilityMismatchError,
 )
 from jtc_gov.domain.models import GateId
+from jtc_gov.integrations.github.pr_formatter import format_audit_comment
+from jtc_gov.integrations.github.summary_generator import generate_pr_summary
 from jtc_gov.services.decision_engine import draft_decision, load_reviews
 from jtc_gov.services.escalator import escalate as run_escalate
 from jtc_gov.services.gate_keeper import validate_gate
@@ -115,6 +117,30 @@ def status() -> None:
     except GovernanceError as e:
         click.echo(f"[GOVERNANCE ERROR] {e}", err=True)
         raise SystemExit(1) from e
+
+
+@main.command(name="format-pr-comment")
+@click.option("--review-file", required=True, help="Path to gate_review.json")
+def format_pr_comment(review_file: str) -> None:
+    """Format audit deliverables into PR markdown comments."""
+    click.echo(format_audit_comment(review_file))
+
+
+@main.command(name="format-pr-summary")
+@click.option("--decision-file", required=True, help="Path to 05_decision.md/json")
+@click.option("--feature-file", required=True, help="Path to acceptance feature file")
+def format_pr_summary(decision_file: str, feature_file: str) -> None:
+    """Generate Lead Agent PR description digest."""
+    click.echo(generate_pr_summary(decision_file, feature_file))
+
+
+@main.command(name="ci-verify")
+@click.pass_context
+def ci_verify(ctx: click.Context) -> None:
+    """Run headless verification in CI."""
+    click.echo("Running CI Verification...")
+    ctx.invoke(trace_check)
+    click.echo("[GOV] CI Verification Complete.")
 
 
 @main.command(name="verify-tool")

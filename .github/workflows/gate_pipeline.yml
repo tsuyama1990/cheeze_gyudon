@@ -1,0 +1,55 @@
+name: Gate Verification Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  gate-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run CI Verification Suite
+        run: uv run gov ci-verify
+
+      - name: Run Full Quality & Governance Suite
+        run: bash scripts/verify_all.sh
+
+      - name: Traceability Check
+        run: uv run gov trace-check
+
+      - name: Enforce Human Sign-off
+        run: |
+          echo "Verifying Human Sign-off gate (CODEOWNERS enforcement)..."
+          # In a real setup this is handled via Branch Protection rules matching CODEOWNERS.
+          # We place a placeholder log here to signify the gate logic in actions.
+          echo "If modifying 05_decision.md or src/, human approval is required by CODEOWNERS."
+
+      - name: Post Audit PR Comment (Placeholder)
+        # Assuming gate_review.json is generated or fetched in a real scenario
+        if: always()
+        run: |
+          echo "Simulating posting of PR comment..."
+          # uv run gov format-pr-comment --review-file gate_review.json
