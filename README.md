@@ -74,7 +74,7 @@ flowchart TD
 | **Gate 4** | Detailed Class Design | `.specs/REQ-xxx/04_detail_design.md` | `04_unit_test_scaffold/` | Code Quality Critic, Security Persona |
 | **Decision**| Tri-Polar Triage | `.specs/REQ-xxx/05_decision.md` | Multi-Option Trade-off Analysis | **Human Sign-Off / Negative Consensus** |
 
-> Human sign-off is a line `HUMAN_SIGN_OFF: APPROVED` written by a human in `05_decision.md`; `gov gate-check --gate 4` refuses to advance without it. There is no command that signs off on the human's behalf.
+> `gov gate-check --gate 4` refuses to advance unless `05_decision.md` contains the line `HUMAN_SIGN_OFF: APPROVED`. **Known gap:** `gov draft-decision` currently writes that line itself, so the sign-off is not yet human-only. See [doc/as_is_inventory.md](doc/as_is_inventory.md) (defect A) and [doc/open_design_decisions.md](doc/open_design_decisions.md) (D3).
 | **Gate 5** | Coding & Verification | `src/` (Implementation) | `tests/` (`@pytest.mark.requirement`) | Automated CI, Branch Coverage $\ge 90\%$ |
 
 ---
