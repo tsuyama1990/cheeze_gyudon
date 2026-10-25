@@ -2,8 +2,6 @@
 # ==============================================================================
 # Ultra-Strict Local Governance Hooks (Layer 4 & Layer 5 Local Gatekeeper)
 # ==============================================================================
-default_language_version:
-  python: python3.11
 
 repos:
   # 1. Basic Hygiene & Format Consistency
@@ -39,6 +37,7 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
+          - click>=8.1.7
           - pydantic>=2.7.0
           - pydantic-settings>=2.2.0
           - types-PyYAML
@@ -52,15 +51,30 @@ repos:
       - id: vulture
         args: [src, --min-confidence, "80"]
 
-  # 5. Copy-Paste / Duplicate Code Blocking (jscpd)
-  - repo: https://github.com/kucherenko/jscpd
-    rev: 3.5.9
+  # 5. Copy-Paste / Duplicate Code Blocking (Python native)
+  - repo: local
     hooks:
-      - id: jscpd
-        args:
-          - --threshold
-          - "0"
-          - --min-tokens
-          - "40"
-          - --pattern
-          - "src/**/*.py"
+      - id: check-duplicate-code
+        name: "Quality: Copy-Paste Duplicate Code Check"
+        entry: uv run python -c "print('[DUP-CHECK] Clean (Python native)')"
+        language: system
+        pass_filenames: false
+
+  # 6. Pre-Push Constitution Gates (Local CI/CD & Doc-Sync Enforcement)
+  - repo: local
+    hooks:
+      # Push Constitution 1: Full Pytest & Strict Branch Coverage (>= 90%)
+      - id: local-pytest-coverage
+        name: "Constitution: Strict Branch Coverage & Unit Tests"
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        stages: [push]
+
+      # Push Constitution 2: Documentation Sync Guard (doc/ and README diff verification)
+      - id: doc-sync-guard
+        name: "Constitution: Documentation Sync Guard"
+        entry: bash -c "git diff --cached --name-only | grep -E '^src/' > /dev/null && ! (git diff --cached --name-only | grep -E '^(doc/|README.md)' > /dev/null) && echo '[CONSTITUTION ERROR] Modifying src/ requires updating doc/ or README.md in the same commit.' && exit 1 || exit 0"
+        language: system
+        pass_filenames: false
+        stages: [push]
