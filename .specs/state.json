@@ -1,0 +1,21 @@
+{
+  "$schema": "./state.schema.json",
+  "active_requirement_id": "REQ-2026-001",
+  "requirements": {
+    "REQ-2026-001": {
+      "title": "JTC-Style AI-Driven Governance CLI Core Engine",
+      "current_gate": "GATE1_SPEC",
+      "status": "IN_PROGRESS",
+      "unlocked_paths": [
+        ".specs/REQ-2026-001/01_*",
+        ".agent/*",
+        "doc/*",
+        "README.md",
+        "pyproject.toml",
+        ".pre-commit-config.yaml",
+        "scripts/*"
+      ],
+      "completed_gates": []
+    }
+  }
+}

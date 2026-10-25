@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "command": "uv run python -m jtc_gov.cli verify-tool --tool \"$CLAUDE_TOOL_NAME\" --input \"$CLAUDE_TOOL_INPUT_JSON\""
+      }
+    ]
+  }
+}

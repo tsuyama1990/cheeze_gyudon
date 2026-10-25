@@ -2,8 +2,6 @@
 # ==============================================================================
 # Ultra-Strict Local Governance Hooks (Layer 4 & Layer 5 Local Gatekeeper)
 # ==============================================================================
-default_language_version:
-  python: python3.11
 
 repos:
   # 1. Basic Hygiene & Format Consistency
@@ -29,21 +27,18 @@ repos:
     hooks:
       # Linter with automatic fixes where safe
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        args: [--fix]
       # Formatter
       - id: ruff-format
 
-  # 3. Mypy (Ultra-Strict Type Checking)
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+  # 3. Mypy (Ultra-Strict Type Checking via local uv environment)
+  - repo: local
     hooks:
       - id: mypy
-        additional_dependencies:
-          - pydantic>=2.7.0
-          - pydantic-settings>=2.2.0
-          - types-PyYAML
-          - pytest>=8.2.0
-        args: [--strict, --config-file=pyproject.toml]
+        name: "mypy (strict)"
+        entry: uv run mypy src tests
+        language: system
+        pass_filenames: false
 
   # 4. Dead Code Eradication (Vulture)
   - repo: https://github.com/jendrikseipp/vulture
@@ -52,15 +47,31 @@ repos:
       - id: vulture
         args: [src, --min-confidence, "80"]
 
-  # 5. Copy-Paste / Duplicate Code Blocking (jscpd)
-  - repo: https://github.com/kucherenko/jscpd
-    rev: 3.5.9
+  # 5. Copy-Paste / Duplicate Code Blocking (Python native real check)
+  - repo: local
     hooks:
-      - id: jscpd
-        args:
-          - --threshold
-          - "0"
-          - --min-tokens
-          - "40"
-          - --pattern
-          - "src/**/*.py"
+      - id: check-duplicate-code
+        name: "Quality: Copy-Paste Duplicate Code Check"
+        entry: uv run python scripts/check_duplicates.py
+        language: system
+        pass_filenames: false
+
+  # 6. Local Quality & Constitution Gates (Commit & Push Stages)
+  - repo: local
+    hooks:
+      # Constitution 1: Documentation Sync Guard (staged diff verification at commit time)
+      - id: doc-sync-guard
+        name: "Constitution: Documentation Sync Guard"
+        entry: uv run python scripts/doc_sync_guard.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [commit]
+
+      # Constitution 2: Full Pytest & Strict Branch Coverage (>= 90%)
+      - id: local-pytest-coverage
+        name: "Constitution: Strict Branch Coverage & Unit Tests"
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        stages: [commit, push]
