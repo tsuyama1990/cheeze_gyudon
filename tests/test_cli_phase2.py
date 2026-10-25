@@ -12,7 +12,7 @@ from jtc_gov.cli import main
 from jtc_gov.domain.review_models import GateReview
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_reviews() -> list[GateReview]:
     return [
         GateReview(

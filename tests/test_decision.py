@@ -8,7 +8,7 @@ from jtc_gov.domain.review_models import GateReview
 from jtc_gov.services.decision_engine import draft_decision, generate_tripolar_matrix, load_reviews
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_reviews() -> list[GateReview]:
     return [
         GateReview(

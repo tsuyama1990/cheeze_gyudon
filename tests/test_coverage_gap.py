@@ -59,7 +59,7 @@ def test_cli_coverage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(main, ["gate-check", "--gate", "2"])
     assert result.exit_code == 1
 
-    result = runner.invoke(main, ["draft-decision"])
+    result = runner.invoke(main, ["approve-decision"])
     assert result.exit_code == 1
 
     result = runner.invoke(main, ["escalate", "--gate", "1", "--reason", "test"])
@@ -81,7 +81,7 @@ def test_cli_coverage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(main, ["gate-check", "--gate", "2"])
     assert result.exit_code == 1
 
-    result = runner.invoke(main, ["draft-decision"])
+    result = runner.invoke(main, ["approve-decision"])
     assert result.exit_code == 1
 
     # Extract file coverage
@@ -183,7 +183,7 @@ def test_cli_coverage_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     Path(".specs/state.json").write_text(
         '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE4.5_DECISION"}}}'
     )
-    result = runner.invoke(main, ["draft-decision"])
+    result = runner.invoke(main, ["approve-decision"])
     assert result.exit_code == 0
 
     # Catch OS/JSON decode errors in process state
@@ -198,7 +198,7 @@ def test_cli_coverage_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     result = runner.invoke(main, ["gate-check", "--gate", "1"])
     assert result.exit_code == 1
 
-    result = runner.invoke(main, ["draft-decision"])
+    result = runner.invoke(main, ["approve-decision"])
     assert result.exit_code == 1
 
     result = runner.invoke(main, ["escalate", "--gate", "1", "--reason", "test"])
