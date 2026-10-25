@@ -177,11 +177,15 @@ uv run mypy src tests
 # Run dead code eradication check
 uv run vulture src --min-confidence 80
 
-# Run Pytest with strict branch coverage (>= 90%)
-uv run pytest
+# Run one-stop governance verification suite (Ruff, Mypy, Vulture, Duplicates, Pytest, Hooks)
+bash scripts/verify_all.sh
 
-# Test the governance CLI entrypoint
-uv run gov --help
+# Run duplicate code detection
+uv run python scripts/check_duplicates.py
+
+# Test the governance CLI status and tool verification
+uv run gov status
+uv run gov verify-tool --file README.md
 ```
 
 ---

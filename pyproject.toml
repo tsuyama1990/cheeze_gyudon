@@ -47,7 +47,7 @@ packages = ["src/jtc_gov"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
 # Enable ALL rules by default, then selectively ignore only mutually exclusive ones
@@ -67,6 +67,12 @@ ignore = [
     "PLR2004", # magic value comparisons allowed in tests
     "S105",    # mock passwords allowed in tests
     "S106",    # mock passwords allowed in tests
+]
+"scripts/**/*" = [
+    "T201",    # print allowed in CLI scripts
+    "INP001",  # implicit namespace package allowed for standalone scripts
+    "S607",    # partial executable path allowed in scripts
+    "S603",    # subprocess call without shell=True allowed in scripts
 ]
 
 [tool.ruff.lint.mccabe]

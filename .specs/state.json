@@ -12,7 +12,8 @@
         "doc/*",
         "README.md",
         "pyproject.toml",
-        ".pre-commit-config.yaml"
+        ".pre-commit-config.yaml",
+        "scripts/*"
       ],
       "completed_gates": []
     }
