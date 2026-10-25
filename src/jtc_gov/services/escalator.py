@@ -7,6 +7,27 @@ from jtc_gov.services.gate_keeper import get_unlocked_paths_for_gate
 from jtc_gov.services.state_engine import read_state, write_state
 
 
+def _write_escalation_record(
+    active_req_id: str, from_gate: GateId, to_gate: GateId, reason: str
+) -> None:
+    esc_dir = Path(f".specs/{active_req_id}/escalations")
+    esc_dir.mkdir(parents=True, exist_ok=True)
+
+    esc_count = len(list(esc_dir.glob("ESC-*.json"))) + 1
+    esc_file = esc_dir / f"ESC-{esc_count:03d}.json"
+
+    esc_record = {
+        "escalation_id": f"ESC-{esc_count:03d}",
+        "requirement_id": active_req_id,
+        "from_gate": from_gate.value,
+        "to_gate": to_gate.value,
+        "reason": reason,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+
+    esc_file.write_text(json.dumps(esc_record, indent=2), encoding="utf-8")
+
+
 def escalate(to_gate: int, reason: str) -> None:
     """
     Safely rolls back state and workspace lock to a previous gate.
@@ -21,30 +42,14 @@ def escalate(to_gate: int, reason: str) -> None:
 
     active_req = state.requirements[active_req_id]
 
-    gate_mapping = {
-        1: GateId.GATE1_SPEC,
-        2: GateId.GATE2_SYSTEM,
-        3: GateId.GATE3_INTEGRATION,
-        4: GateId.GATE4_DETAIL,
-        5: GateId.GATE5_IMPL
-    }
-
-    if to_gate not in gate_mapping:
+    gate_sequence = list(GateId)
+    if not 1 <= to_gate <= len(gate_sequence):
         msg = "Invalid target gate for escalation. Must be 1-5."
         raise ValueError(msg)
 
-    target_gate = gate_mapping[to_gate]
-
-    gate_sequence = [
-        GateId.GATE1_SPEC,
-        GateId.GATE2_SYSTEM,
-        GateId.GATE3_INTEGRATION,
-        GateId.GATE4_DETAIL,
-        GateId.GATE5_IMPL
-    ]
-
+    target_gate = gate_sequence[to_gate - 1]
     current_idx = gate_sequence.index(active_req.current_gate)
-    target_idx = gate_sequence.index(target_gate)
+    target_idx = to_gate - 1
 
     if target_idx >= current_idx:
         msg = "Escalation must be to a previous gate."
@@ -65,22 +70,6 @@ def escalate(to_gate: int, reason: str) -> None:
 
     new_state = StateModel.model_validate(state_dict)
 
-    # Generate escalation record
-    esc_dir = Path(f".specs/{active_req_id}/escalations")
-    esc_dir.mkdir(parents=True, exist_ok=True)
-
-    esc_count = len(list(esc_dir.glob("ESC-*.json"))) + 1
-    esc_file = esc_dir / f"ESC-{esc_count:03d}.json"
-
-    esc_record = {
-        "escalation_id": f"ESC-{esc_count:03d}",
-        "requirement_id": active_req_id,
-        "from_gate": active_req.current_gate.value,
-        "to_gate": target_gate.value,
-        "reason": reason,
-        "timestamp": datetime.now(UTC).isoformat()
-    }
-
-    esc_file.write_text(json.dumps(esc_record, indent=2), encoding="utf-8")
+    _write_escalation_record(active_req_id, active_req.current_gate, target_gate, reason)
 
     write_state(new_state)

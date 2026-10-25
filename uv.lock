@@ -156,7 +156,7 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "diff-cover" },
     { name = "mypy" },
@@ -172,21 +172,24 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
-    { name = "diff-cover", marker = "extra == 'dev'", specifier = ">=9.0.0" },
     { name = "jsonschema", specifier = ">=4.22.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.7.1" },
     { name = "pydantic", specifier = ">=2.7.0" },
     { name = "pydantic-settings", specifier = ">=2.2.0" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.363" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.4" },
-    { name = "types-click", marker = "extra == 'dev'", specifier = ">=7.1.8" },
-    { name = "vulture", marker = "extra == 'dev'", specifier = ">=2.11" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "diff-cover", specifier = ">=9.0.0" },
+    { name = "mypy", specifier = ">=1.10.0" },
+    { name = "pre-commit", specifier = ">=3.7.1" },
+    { name = "pyright", specifier = ">=1.1.363" },
+    { name = "pytest", specifier = ">=8.2.0" },
+    { name = "pytest-cov", specifier = ">=5.0.0" },
+    { name = "ruff", specifier = ">=0.4.4" },
+    { name = "types-click", specifier = ">=7.1.8" },
+    { name = "vulture", specifier = ">=2.11" },
+]
 
 [[package]]
 name = "click"

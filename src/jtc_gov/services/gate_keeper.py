@@ -11,13 +11,13 @@ def _validate_pair_deliverables(gate_id: GateId, spec_dir: Path) -> None:
     for pair_item in pairs:
         matches = list(spec_dir.glob(pair_item))
         if not matches and "test" in pair_item.lower():
-             matches = list(Path("tests").glob(pair_item))
-             if not matches and pair_item.startswith("tests/"):
-                 matches = list(Path().glob(pair_item))
+            matches = list(Path("tests").glob(pair_item))
+            if not matches and pair_item.startswith("tests/"):
+                matches = list(Path().glob(pair_item))
 
         if not matches:
-             msg = f"Missing mandatory pair deliverable matching: {pair_item}"
-             raise GateCheckFailedError(msg)
+            msg = f"Missing mandatory pair deliverable matching: {pair_item}"
+            raise GateCheckFailedError(msg)
 
 
 def _validate_reviews(gate_id: GateId, spec_dir: Path) -> None:
@@ -29,12 +29,12 @@ def _validate_reviews(gate_id: GateId, spec_dir: Path) -> None:
         try:
             data = json.loads(review_file.read_text(encoding="utf-8"))
             review = GateReviewDeliverable.model_validate(data)
-            if review.gate_id == gate_id and review.status != "APPROVED":
-                msg = f"Review {review_file.name} is not APPROVED (status: {review.status})"
-                raise GateCheckFailedError(msg)
         except Exception as e:
             msg = f"Failed to parse review {review_file}: {e}"
             raise GateCheckFailedError(msg) from e
+        if review.gate_id == gate_id and review.status != "APPROVED":
+            msg = f"Review {review_file.name} is not APPROVED (status: {review.status})"
+            raise GateCheckFailedError(msg)
 
 
 def _validate_human_signoff(gate_id: GateId, spec_dir: Path) -> None:
@@ -47,6 +47,36 @@ def _validate_human_signoff(gate_id: GateId, spec_dir: Path) -> None:
         if "HUMAN_SIGN_OFF: APPROVED" not in content:
             msg = "Missing 'HUMAN_SIGN_OFF: APPROVED' in 05_decision.md."
             raise GateCheckFailedError(msg)
+
+
+def _advance_state(state: StateModel, active_req_id: str, gate_id: GateId) -> None:
+    active_req = state.requirements[active_req_id]
+    gate_sequence = list(GateId)
+    current_idx = gate_sequence.index(gate_id)
+
+    new_completed = list(active_req.completed_gates)
+    if gate_id not in new_completed:
+        new_completed.append(gate_id)
+
+    next_gate = gate_sequence[current_idx + 1] if current_idx + 1 < len(gate_sequence) else gate_id
+
+    # Unlock paths for next gate
+    next_unlocked_paths = get_unlocked_paths_for_gate(next_gate, active_req_id)
+
+    # Update requirement item
+    req_dict = active_req.model_dump()
+    req_dict["current_gate"] = next_gate
+    req_dict["completed_gates"] = new_completed
+    req_dict["unlocked_paths"] = next_unlocked_paths
+    if next_gate == GateId.GATE5_IMPL and gate_id == GateId.GATE5_IMPL:
+        req_dict["status"] = "COMPLETED"
+
+    # Update state
+    state_dict = state.model_dump()
+    state_dict["requirements"][active_req_id] = req_dict
+
+    new_state = StateModel.model_validate(state_dict)
+    write_state(new_state)
 
 
 def validate_gate(gate_id: GateId) -> None:
@@ -76,40 +106,7 @@ def validate_gate(gate_id: GateId) -> None:
     _validate_reviews(gate_id, spec_dir)
     _validate_human_signoff(gate_id, spec_dir)
 
-    # 4. Advance State
-    gate_sequence = [
-        GateId.GATE1_SPEC,
-        GateId.GATE2_SYSTEM,
-        GateId.GATE3_INTEGRATION,
-        GateId.GATE4_DETAIL,
-        GateId.GATE5_IMPL
-    ]
-
-    current_idx = gate_sequence.index(gate_id)
-
-    new_completed = list(active_req.completed_gates)
-    if gate_id not in new_completed:
-        new_completed.append(gate_id)
-
-    next_gate = gate_sequence[current_idx + 1] if current_idx + 1 < len(gate_sequence) else gate_id
-
-    # Unlock paths for next gate
-    next_unlocked_paths = get_unlocked_paths_for_gate(next_gate, active_req_id)
-
-    # Update requirement item
-    req_dict = active_req.model_dump()
-    req_dict["current_gate"] = next_gate
-    req_dict["completed_gates"] = new_completed
-    req_dict["unlocked_paths"] = next_unlocked_paths
-    if next_gate == GateId.GATE5_IMPL and gate_id == GateId.GATE5_IMPL:
-         req_dict["status"] = "COMPLETED"
-
-    # Update state
-    state_dict = state.model_dump()
-    state_dict["requirements"][active_req_id] = req_dict
-
-    new_state = StateModel.model_validate(state_dict)
-    write_state(new_state)
+    _advance_state(state, active_req_id, gate_id)
 
 
 def get_required_pairs(gate_id: GateId) -> list[str]:
@@ -125,21 +122,25 @@ def get_required_pairs(gate_id: GateId) -> list[str]:
     return []
 
 
+GATE_UNLOCK_PATTERNS: dict[GateId, list[str]] = {
+    GateId.GATE1_SPEC: [".specs/{req}/01_*"],
+    GateId.GATE2_SYSTEM: [".specs/{req}/02_*"],
+    GateId.GATE3_INTEGRATION: [".specs/{req}/03_*"],
+    GateId.GATE4_DETAIL: [".specs/{req}/04_*", ".specs/{req}/05_*", "tests/*"],
+    GateId.GATE5_IMPL: [".specs/{req}/*", "tests/*", "src/*"],
+}
+
+BASE_UNLOCKED_PATHS = [
+    ".agent/*",
+    "doc/*",
+    "README.md",
+    "pyproject.toml",
+    ".pre-commit-config.yaml",
+    "scripts/*",
+]
+
+
 def get_unlocked_paths_for_gate(gate_id: GateId, active_req_id: str) -> list[str]:
     """Returns standard unlocked paths for a given gate."""
-    base_paths = [
-        ".agent/*", "doc/*", "README.md", "pyproject.toml",
-        ".pre-commit-config.yaml", "scripts/*"
-    ]
-    if gate_id == GateId.GATE1_SPEC:
-        return [*base_paths, f".specs/{active_req_id}/01_*"]
-    if gate_id == GateId.GATE2_SYSTEM:
-        return [*base_paths, f".specs/{active_req_id}/02_*"]
-    if gate_id == GateId.GATE3_INTEGRATION:
-        return [*base_paths, f".specs/{active_req_id}/03_*"]
-    if gate_id == GateId.GATE4_DETAIL:
-        return [*base_paths, f".specs/{active_req_id}/04_*", f".specs/{active_req_id}/05_*", "tests/*"]
-    if gate_id == GateId.GATE5_IMPL:
-        # Full unlock for implementation
-        return [*base_paths, f".specs/{active_req_id}/*", "tests/*", "src/*"]
-    return base_paths
+    gate_paths = [p.format(req=active_req_id) for p in GATE_UNLOCK_PATTERNS[gate_id]]
+    return [*BASE_UNLOCKED_PATHS, *gate_paths]

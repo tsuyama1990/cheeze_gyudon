@@ -1,9 +1,8 @@
 import fnmatch
 import json
-import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
-from jtc_gov.domain.exceptions import StateCorruptedError
+from jtc_gov.domain.exceptions import StateCorruptedError, StateNotFoundError
 from jtc_gov.domain.models import StateModel
 
 
@@ -18,7 +17,7 @@ def read_state() -> StateModel:
     state_path = get_state_path()
     if not state_path.exists():
         msg = f"State file not found at {state_path}"
-        raise StateCorruptedError(msg)
+        raise StateNotFoundError(msg)
 
     try:
         content = state_path.read_text(encoding="utf-8")
@@ -39,7 +38,7 @@ def write_state(state: StateModel) -> None:
         json_data = state.model_dump_json(indent=2)
         temp_path.write_text(json_data, encoding="utf-8")
         # Atomic replacement (POSIX compliant, generally works on Windows in newer Pythons)
-        os.replace(temp_path, state_path)
+        temp_path.replace(state_path)
     except Exception as e:
         if temp_path.exists():
             temp_path.unlink()
@@ -47,9 +46,27 @@ def write_state(state: StateModel) -> None:
         raise StateCorruptedError(msg) from e
 
 
+def _to_root_relative(target_path: str) -> str | None:
+    """
+    Resolves target_path against the current working directory and returns it as a
+    root-relative POSIX path. Returns None when the path escapes the project root.
+    """
+    root = Path.cwd().resolve()
+    candidate = Path(target_path.replace("\\", "/"))
+    resolved = (candidate if candidate.is_absolute() else root / candidate).resolve()
+    try:
+        relative = resolved.relative_to(root)
+    except ValueError:
+        return None
+    return PurePosixPath(relative).as_posix()
+
+
 def is_path_unlocked(target_path: str, unlocked_paths: list[str]) -> bool:
     """
     Checks if target_path matches any of the glob patterns in unlocked_paths.
-    Matches using fnmatch.
+    Paths outside the project root are always denied.
     """
-    return any(fnmatch.fnmatch(target_path, pattern) for pattern in unlocked_paths)
+    relative = _to_root_relative(target_path)
+    if relative is None:
+        return False
+    return any(fnmatch.fnmatch(relative, pattern) for pattern in unlocked_paths)

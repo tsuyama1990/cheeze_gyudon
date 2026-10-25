@@ -73,6 +73,8 @@ flowchart TD
 | **Gate 3** | Integration Design | `.specs/REQ-xxx/03_architecture.md` | `03_integration_tests.md` | Interface Architect, QA Lead |
 | **Gate 4** | Detailed Class Design | `.specs/REQ-xxx/04_detail_design.md` | `04_unit_test_scaffold/` | Code Quality Critic, Security Persona |
 | **Decision**| Tri-Polar Triage | `.specs/REQ-xxx/05_decision.md` | Multi-Option Trade-off Analysis | **Human Sign-Off / Negative Consensus** |
+
+> Human sign-off is a line `HUMAN_SIGN_OFF: APPROVED` written by a human in `05_decision.md`; `gov gate-check --gate 4` refuses to advance without it. There is no command that signs off on the human's behalf.
 | **Gate 5** | Coding & Verification | `src/` (Implementation) | `tests/` (`@pytest.mark.requirement`) | Automated CI, Branch Coverage $\ge 90\%$ |
 
 ---

@@ -24,7 +24,7 @@ class RequirementItem(BaseModel):
     current_gate: GateId = Field(strict=False)
     status: RequirementStatus = Field(strict=False)
     unlocked_paths: list[str] = Field(strict=True, default_factory=list)
-    completed_gates: list[GateId] = Field(default_factory=list) # pyright: ignore
+    completed_gates: list[GateId] = Field(default_factory=list)
 
     model_config = {"frozen": True}
 

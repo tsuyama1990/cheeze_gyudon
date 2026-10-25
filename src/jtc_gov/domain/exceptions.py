@@ -10,6 +10,10 @@ class StateCorruptedError(GovernanceError):
     """Raised when the state machine is corrupted or invalid."""
 
 
+class StateNotFoundError(StateCorruptedError):
+    """.specs/state.json does not exist (project not initialised)."""
+
+
 class UnauthorizedFileAccessError(GovernanceError):
     """Raised when an agent attempts to edit a file outside unlocked_paths."""
 

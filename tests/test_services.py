@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -20,17 +20,6 @@ def mock_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> StateModel:
     state_file = tmp_path / "state.json"
     monkeypatch.setattr("jtc_gov.services.state_engine.get_state_path", lambda: state_file)
 
-    req = RequirementItem(
-        title="Test",
-        current_gate=GateId.GATE1_SPEC,
-        status=RequirementStatus.IN_PROGRESS,
-        unlocked_paths=[".specs/*"],
-        completed_gates=[]
-    )
-    state = StateModel(active_requirement_id="REQ-0000", requirements={"REQ-0000": req})
-    from jtc_gov.services.state_engine import write_state
-    write_state(state)
-
     # Mock CWD logic for tracer/gatekeeper
     monkeypatch.chdir(tmp_path)
     Path(".specs/REQ-2026-001").mkdir(parents=True)
@@ -42,13 +31,15 @@ def mock_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> StateModel:
         current_gate=GateId.GATE1_SPEC,
         status=RequirementStatus.IN_PROGRESS,
         unlocked_paths=[".specs/*"],
-        completed_gates=[]
+        completed_gates=[],
     )
     state = StateModel(active_requirement_id="REQ-2026-001", requirements={"REQ-2026-001": req})
     from jtc_gov.services.state_engine import write_state
+
     write_state(state)
 
     return state
+
 
 @pytest.mark.requirement("REQ-2026-001-F03")
 def test_tracer_extraction(tmp_path: Path) -> None:
@@ -78,29 +69,39 @@ def test_b(): pass
     bad_file.write_text("def def def syntax error")
     assert extract_requirements_from_tests(test_dir) == {"REQ-2026-001-F01", "REQ-2026-002"}
 
+
 @pytest.mark.requirement("REQ-2026-001-F03")
 def test_verify_traceability(mock_state: StateModel) -> None:
     # Setup matching files
     Path(".specs/REQ-2026-001/01_req_spec.md").write_text("[REQ-2026-001-F01]")
-    Path("tests/test_x.py").write_text('@pytest.mark.requirement("REQ-2026-001-F01")\ndef test_x(): pass')
+    Path("tests/test_x.py").write_text(
+        '@pytest.mark.requirement("REQ-2026-001-F01")\ndef test_x(): pass'
+    )
 
     verify_traceability()
 
     # Setup missing in tests
     Path(".specs/REQ-2026-001/01_req_spec.md").write_text("[REQ-2026-001-F01]\n[REQ-2026-001-F02]")
-    with pytest.raises(TraceabilityMismatchError, match="Missing test coverage for: REQ-2026-001-F02"):
+    with pytest.raises(
+        TraceabilityMismatchError, match="Missing test coverage for: REQ-2026-001-F02"
+    ):
         verify_traceability()
 
     # Setup missing in spec
     Path(".specs/REQ-2026-001/01_req_spec.md").write_text("[REQ-2026-001-F01]")
-    Path("tests/test_y.py").write_text('@pytest.mark.requirement("REQ-2026-001-F03")\ndef test_y(): pass')
-    with pytest.raises(TraceabilityMismatchError, match="Scope creep / undefined in spec: REQ-2026-001-F03"):
+    Path("tests/test_y.py").write_text(
+        '@pytest.mark.requirement("REQ-2026-001-F03")\ndef test_y(): pass'
+    )
+    with pytest.raises(
+        TraceabilityMismatchError, match="Scope creep / undefined in spec: REQ-2026-001-F03"
+    ):
         verify_traceability()
 
     # Missing spec
     Path(".specs/REQ-2026-001/01_req_spec.md").unlink()
     with pytest.raises(TraceabilityMismatchError, match="does not exist"):
         verify_traceability()
+
 
 @pytest.mark.requirement("REQ-2026-001-F02")
 def test_gate_keeper_validation(mock_state: StateModel) -> None:
@@ -124,7 +125,7 @@ def test_gate_keeper_validation(mock_state: StateModel) -> None:
         "design_flaws": [],
         "test_design_flaws": [],
         "accepted_tradeoffs": [],
-        "reviewed_at": datetime.now().isoformat() + "Z"
+        "reviewed_at": datetime.now(UTC).isoformat(),
     }
     review_dir.joinpath("review.json").write_text(json.dumps(review_data))
 
@@ -132,12 +133,14 @@ def test_gate_keeper_validation(mock_state: StateModel) -> None:
     validate_gate(GateId.GATE1_SPEC)
 
     from jtc_gov.services.state_engine import read_state
+
     new_state = read_state()
     assert new_state.requirements["REQ-2026-001"].current_gate == GateId.GATE2_SYSTEM
 
     # test gate mismatch error
     with pytest.raises(GateCheckFailedError, match="current gate is GATE2_SYSTEM"):
         validate_gate(GateId.GATE1_SPEC)
+
 
 @pytest.mark.requirement("REQ-2026-001-F02")
 def test_gate_keeper_gate4_human_signoff(mock_state: StateModel) -> None:
@@ -158,7 +161,7 @@ def test_gate_keeper_gate4_human_signoff(mock_state: StateModel) -> None:
     Path("tests/test_x.py").touch()
 
     # Missing decision
-    with pytest.raises(GateCheckFailedError, match="Missing 05_decision.md"):
+    with pytest.raises(GateCheckFailedError, match=r"Missing 05_decision\.md"):
         validate_gate(GateId.GATE4_DETAIL)
 
     decision = spec_dir / "05_decision.md"
@@ -178,6 +181,7 @@ def test_gate_keeper_gate4_human_signoff(mock_state: StateModel) -> None:
     Path("src/something.py").touch()
     validate_gate(GateId.GATE5_IMPL)
     assert read_state().requirements["REQ-2026-001"].status == RequirementStatus.COMPLETED
+
 
 @pytest.mark.requirement("REQ-2026-001-F05")
 def test_escalator(mock_state: StateModel) -> None:
@@ -209,6 +213,7 @@ def test_escalator(mock_state: StateModel) -> None:
     # invalid target (must be previous)
     with pytest.raises(ValueError, match="must be to a previous gate"):
         escalate(3, "bad")
+
 
 @pytest.mark.requirement("REQ-2026-001-F02")
 def test_get_unlocked_paths_for_gate() -> None:

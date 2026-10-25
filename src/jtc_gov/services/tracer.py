@@ -53,7 +53,9 @@ def _process_decorator(decorator: ast.expr, found_reqs: set[str]) -> None:
         func = decorator.func
         is_req_mark = False
 
-        if (isinstance(func, ast.Attribute) and func.attr == "requirement") or (isinstance(func, ast.Name) and func.id == "requirement"):
+        if (isinstance(func, ast.Attribute) and func.attr == "requirement") or (
+            isinstance(func, ast.Name) and func.id == "requirement"
+        ):
             is_req_mark = True
 
         if is_req_mark and decorator.args:

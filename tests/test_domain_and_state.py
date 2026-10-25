@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -22,7 +22,7 @@ def test_requirement_item_validation() -> None:
         current_gate=GateId.GATE1_SPEC,
         status=RequirementStatus.IN_PROGRESS,
         unlocked_paths=[".specs/*"],
-        completed_gates=[]
+        completed_gates=[],
     )
     assert req.title == "Test Req"
     assert req.current_gate == GateId.GATE1_SPEC
@@ -31,6 +31,7 @@ def test_requirement_item_validation() -> None:
         # frozen model modification
         req.title = "New Title"
 
+
 @pytest.mark.requirement("REQ-2026-001-F01")
 def test_state_model_validation() -> None:
     req = RequirementItem(
@@ -38,6 +39,7 @@ def test_state_model_validation() -> None:
     )
     state = StateModel(active_requirement_id="REQ-0000", requirements={"REQ-0000": req})
     assert state.active_requirement_id == "REQ-0000"
+
 
 @pytest.mark.requirement("REQ-2026-001-F01")
 def test_gate_review_deliverable_validation() -> None:
@@ -50,7 +52,7 @@ def test_gate_review_deliverable_validation() -> None:
         design_flaws=[],
         test_design_flaws=[],
         accepted_tradeoffs=[],
-        reviewed_at=datetime.now()
+        reviewed_at=datetime.now(UTC),
     )
 
     with pytest.raises(ValidationError):
@@ -63,8 +65,9 @@ def test_gate_review_deliverable_validation() -> None:
             design_flaws=["1", "2", "3"],
             test_design_flaws=[],
             accepted_tradeoffs=[],
-            reviewed_at=datetime.now()
+            reviewed_at=datetime.now(UTC),
         )
+
 
 @pytest.mark.requirement("REQ-2026-001-F01")
 def test_is_path_unlocked() -> None:
@@ -72,6 +75,34 @@ def test_is_path_unlocked() -> None:
     assert is_path_unlocked(".specs/REQ-2026-001/01_req_spec.md", unlocked)
     assert is_path_unlocked("src/service.py", unlocked)
     assert not is_path_unlocked("tests/test_service.py", unlocked)
+
+
+@pytest.mark.requirement("REQ-2026-001-F01")
+def test_is_path_unlocked_absolute_allowed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    target = str(tmp_path / "src" / "a.py")
+    assert is_path_unlocked(target, ["src/*"]) is True
+
+
+@pytest.mark.requirement("REQ-2026-001-F01")
+def test_is_path_unlocked_absolute_locked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    target = str(tmp_path / "tests" / "a.py")
+    assert is_path_unlocked(target, ["src/*"]) is False
+
+
+@pytest.mark.requirement("REQ-2026-001-F01")
+def test_is_path_unlocked_outside_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    outside = str(tmp_path.parent / "outside.py")
+    assert is_path_unlocked(outside, ["*"]) is False
+
+
+@pytest.mark.requirement("REQ-2026-001-F01")
+def test_is_path_unlocked_traversal_denied(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert is_path_unlocked("../outside.py", ["*"]) is False
+
 
 @pytest.mark.requirement("REQ-2026-001-F01")
 def test_read_write_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -98,10 +129,11 @@ def test_read_write_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> No
     assert "REQ-0000" in loaded_state.requirements
 
     # Write failure error handling
-    def mock_replace(src: str | Path, dst: str | Path) -> None:
+    def mock_replace(self: Path, target: str | Path) -> Path:
         msg = "Mock write error"
         raise StateCorruptedError(msg)
-    monkeypatch.setattr("jtc_gov.services.state_engine.os.replace", mock_replace)
+
+    monkeypatch.setattr(Path, "replace", mock_replace)
     with pytest.raises(StateCorruptedError):
         write_state(state)
 
