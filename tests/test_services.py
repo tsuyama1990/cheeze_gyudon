@@ -104,6 +104,11 @@ def test_verify_traceability(mock_state: StateModel) -> None:
     Path(".specs/REQ-2026-001/01_req_spec.md").write_text("[REQ-2026-001]\n[REQ-2026-001-F01]")
     verify_traceability()
 
+    # A spec without any feature tag must not pass vacuously
+    Path(".specs/REQ-2026-001/01_req_spec.md").write_text("[REQ-2026-001]")
+    with pytest.raises(TraceabilityMismatchError, match="no REQ-2026-001-Fnn feature tags"):
+        verify_traceability()
+
     # Missing spec
     Path(".specs/REQ-2026-001/01_req_spec.md").unlink()
     with pytest.raises(TraceabilityMismatchError, match="does not exist"):

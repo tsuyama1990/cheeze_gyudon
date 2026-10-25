@@ -35,9 +35,9 @@ def test_full_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     assert "GATE1_SPEC" in result.output
 
     # 3. Formulate Gate 1 spec and acceptance test scenarios
-    spec_dir = Path(".specs/REQ-INIT-001")
+    spec_dir = Path(".specs/REQ-0000-001")
     spec_dir.mkdir(parents=True)
-    (spec_dir / "01_req_spec.md").write_text("# Spec", encoding="utf-8")
+    (spec_dir / "01_req_spec.md").write_text("# Spec\n- [REQ-0000-001-F01] run", encoding="utf-8")
     (spec_dir / "01_acceptance_tests.feature").write_text("Feature: x", encoding="utf-8")
 
     # 4. Run Gate 1 check: gov gate-check --gate 1 -> Advances to Gate 2
@@ -46,7 +46,7 @@ def test_full_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     assert "Gate 1 check passed. State advanced." in result.output
 
     state_data = json.loads(Path(".specs/state.json").read_text(encoding="utf-8"))
-    assert state_data["requirements"]["REQ-INIT-001"]["current_gate"] == "GATE2_SYSTEM"
+    assert state_data["requirements"]["REQ-0000-001"]["current_gate"] == "GATE2_SYSTEM"
 
     # 5. Gate 2 deliverables
     (spec_dir / "02_system_design.md").write_text("# System", encoding="utf-8")
@@ -54,7 +54,7 @@ def test_full_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     result = runner.invoke(gate_check, ["--gate", "2"])
     assert result.exit_code == 0
     state_data = json.loads(Path(".specs/state.json").read_text(encoding="utf-8"))
-    assert state_data["requirements"]["REQ-INIT-001"]["current_gate"] == "GATE3_INTEGRATION"
+    assert state_data["requirements"]["REQ-0000-001"]["current_gate"] == "GATE3_INTEGRATION"
 
     # 6. Gate 3 deliverables
     (spec_dir / "03_architecture.md").write_text("# Arch", encoding="utf-8")
@@ -62,19 +62,24 @@ def test_full_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     result = runner.invoke(gate_check, ["--gate", "3"])
     assert result.exit_code == 0
     state_data = json.loads(Path(".specs/state.json").read_text(encoding="utf-8"))
-    assert state_data["requirements"]["REQ-INIT-001"]["current_gate"] == "GATE4_DETAIL"
+    assert state_data["requirements"]["REQ-0000-001"]["current_gate"] == "GATE4_DETAIL"
 
     # 7. Gate 4 deliverables: detail design + test file + human sign-off
     (spec_dir / "04_detail_design.md").write_text("# Detail", encoding="utf-8")
     tests_dir = Path("tests")
     tests_dir.mkdir()
-    (tests_dir / "test_module.py").write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+    (tests_dir / "test_module.py").write_text(
+        "import pytest\n\n"
+        '@pytest.mark.requirement("REQ-0000-001-F01")\n'
+        "def test_ok():\n    assert True\n",
+        encoding="utf-8",
+    )
     (spec_dir / "05_decision.md").write_text("HUMAN_SIGN_OFF: APPROVED\n", encoding="utf-8")
 
     result = runner.invoke(gate_check, ["--gate", "4"])
     assert result.exit_code == 0
     state_data = json.loads(Path(".specs/state.json").read_text(encoding="utf-8"))
-    assert state_data["requirements"]["REQ-INIT-001"]["current_gate"] == "GATE5_IMPL"
+    assert state_data["requirements"]["REQ-0000-001"]["current_gate"] == "GATE5_IMPL"
 
     # 8. src/ is now unlocked for writing
     result = runner.invoke(verify_tool, ["--input", tool_input])
@@ -97,7 +102,7 @@ def test_full_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
 
     # Confirm src/ is instantly re-locked
     state_data = json.loads(Path(".specs/state.json").read_text(encoding="utf-8"))
-    assert state_data["requirements"]["REQ-INIT-001"]["current_gate"] == "GATE2_SYSTEM"
+    assert state_data["requirements"]["REQ-0000-001"]["current_gate"] == "GATE2_SYSTEM"
 
     result = runner.invoke(verify_tool, ["--input", tool_input])
     assert result.exit_code == 1

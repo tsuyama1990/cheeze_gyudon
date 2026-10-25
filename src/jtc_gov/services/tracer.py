@@ -84,6 +84,10 @@ def verify_traceability() -> None:
     spec_reqs = {r for r in extract_requirements_from_spec(spec_path) if feature_tag.fullmatch(r)}
     test_reqs = {r for r in extract_requirements_from_tests(tests_dir) if feature_tag.fullmatch(r)}
 
+    if not spec_reqs:
+        msg = f"Spec {spec_path} defines no {active_id}-Fnn feature tags; nothing to trace."
+        raise TraceabilityMismatchError(msg)
+
     missing_in_tests = spec_reqs - test_reqs
     missing_in_spec = test_reqs - spec_reqs
 

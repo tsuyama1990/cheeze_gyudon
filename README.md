@@ -186,6 +186,7 @@ bash scripts/verify_all.sh
 uv run python scripts/check_duplicates.py
 
 # Test the governance CLI status and tool verification
+# (`gov init` in a new project scaffolds requirement REQ-0000-001; rename it to your own REQ-YYYY-NNN)
 uv run gov status
 uv run gov verify-tool --file README.md
 ```

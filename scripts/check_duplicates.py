@@ -17,7 +17,7 @@ def extract_normalized_blocks(file_path: Path, block_size: int = 5) -> dict[str,
             if isinstance(node, (ast.Import, ast.ImportFrom))
             for n in range(node.lineno, (node.end_lineno or node.lineno) + 1)
         }
-    except (OSError, SyntaxError):
+    except OSError:
         return blocks
 
     lines = [
