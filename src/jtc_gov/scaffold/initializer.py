@@ -7,7 +7,7 @@ from jtc_gov.domain.models import GateId, RequirementItem, RequirementStatus, St
 from jtc_gov.services.gate_keeper import get_unlocked_paths_for_gate
 from jtc_gov.services.state_engine import write_state
 
-INITIAL_REQUIREMENT_ID = "REQ-INIT-001"
+INITIAL_REQUIREMENT_ID = "REQ-0000-001"
 
 
 def init_project(ci: str | None = None) -> None:

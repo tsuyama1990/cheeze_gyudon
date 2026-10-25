@@ -97,6 +97,18 @@ def test_verify_traceability(mock_state: StateModel) -> None:
     ):
         verify_traceability()
 
+    # Tags of other requirements and the bare requirement tag are not part of this trace
+    Path("tests/test_y.py").write_text(
+        '@pytest.mark.requirement("REQ-2026-002-F01")\ndef test_y(): pass'
+    )
+    Path(".specs/REQ-2026-001/01_req_spec.md").write_text("[REQ-2026-001]\n[REQ-2026-001-F01]")
+    verify_traceability()
+
+    # A spec without any feature tag must not pass vacuously
+    Path(".specs/REQ-2026-001/01_req_spec.md").write_text("[REQ-2026-001]")
+    with pytest.raises(TraceabilityMismatchError, match="no REQ-2026-001-Fnn feature tags"):
+        verify_traceability()
+
     # Missing spec
     Path(".specs/REQ-2026-001/01_req_spec.md").unlink()
     with pytest.raises(TraceabilityMismatchError, match="does not exist"):

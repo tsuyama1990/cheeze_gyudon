@@ -101,7 +101,7 @@ flowchart LR
    - `pre-commit`: Blocks direct commits to `main`/`master`, executes Ruff (ALL rules), strict Mypy, Vulture, and duplicate code checks.
    - `pre-push`: Runs Pytest with $\ge 90\%$ branch coverage and enforces the **Documentation Sync Guard** (rejects `src/` diffs lacking documentation updates).
 5. **Layer 5: Remote CI/CD**:
-   Air-gapped, zero-credential-leakage GitHub Actions validating full traceability (`gov trace-check`).
+   Air-gapped, zero-credential-leakage GitHub Actions running `gov ci-verify` (bidirectional traceability of the active requirement's `REQ-xxx-Fnn` tags) and `scripts/verify_all.sh` (lint, types, dead/duplicate code, tests with coverage, pre-commit).
 
 ---
 
@@ -186,6 +186,7 @@ bash scripts/verify_all.sh
 uv run python scripts/check_duplicates.py
 
 # Test the governance CLI status and tool verification
+# (`gov init` in a new project scaffolds requirement REQ-0000-001; rename it to your own REQ-YYYY-NNN)
 uv run gov status
 uv run gov verify-tool --file README.md
 ```
@@ -214,3 +215,4 @@ uv run gov verify-tool --file README.md
 ## 8. License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+Phase 3 updates for PR formatting and summary generation completed.

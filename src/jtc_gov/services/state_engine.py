@@ -1,9 +1,10 @@
 import fnmatch
 import json
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 from jtc_gov.domain.exceptions import StateCorruptedError, StateNotFoundError
-from jtc_gov.domain.models import StateModel
+from jtc_gov.domain.models import RequirementItem, StateModel
 
 
 def get_state_path() -> Path:
@@ -44,6 +45,21 @@ def write_state(state: StateModel) -> None:
             temp_path.unlink()
         msg = f"Failed to write state file: {e}"
         raise StateCorruptedError(msg) from e
+
+
+def get_active_requirement(state: StateModel, error_type: type[Exception]) -> RequirementItem:
+    """Returns the active requirement, raising error_type if state does not contain it."""
+    if state.active_requirement_id not in state.requirements:
+        msg = f"Active requirement '{state.active_requirement_id}' not found in state."
+        raise error_type(msg)
+    return state.requirements[state.active_requirement_id]
+
+
+def update_requirement(state: StateModel, req_id: str, **changes: Any) -> StateModel:  # noqa: ANN401
+    """Returns a validated copy of state with the given fields of one requirement replaced."""
+    data = state.model_dump()
+    data["requirements"][req_id].update(changes)
+    return StateModel.model_validate(data)
 
 
 def _to_root_relative(target_path: str) -> str | None:

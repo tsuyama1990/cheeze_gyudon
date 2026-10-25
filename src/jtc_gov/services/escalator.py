@@ -2,9 +2,14 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jtc_gov.domain.models import GateId, StateModel
+from jtc_gov.domain.models import GateId, RequirementStatus
 from jtc_gov.services.gate_keeper import get_unlocked_paths_for_gate
-from jtc_gov.services.state_engine import read_state, write_state
+from jtc_gov.services.state_engine import (
+    get_active_requirement,
+    read_state,
+    update_requirement,
+    write_state,
+)
 
 
 def _write_escalation_record(
@@ -36,11 +41,7 @@ def escalate(to_gate: int, reason: str) -> None:
     state = read_state()
     active_req_id = state.active_requirement_id
 
-    if active_req_id not in state.requirements:
-        msg = f"Active requirement '{active_req_id}' not found."
-        raise ValueError(msg)
-
-    active_req = state.requirements[active_req_id]
+    active_req = get_active_requirement(state, ValueError)
 
     gate_sequence = list(GateId)
     if not 1 <= to_gate <= len(gate_sequence):
@@ -55,21 +56,17 @@ def escalate(to_gate: int, reason: str) -> None:
         msg = "Escalation must be to a previous gate."
         raise ValueError(msg)
 
-    # Update requirement item
-    req_dict = active_req.model_dump()
-    req_dict["current_gate"] = target_gate
-    req_dict["status"] = "ROLLBACK"
-    req_dict["unlocked_paths"] = get_unlocked_paths_for_gate(target_gate, active_req_id)
-
-    # Remove completed gates that are ahead of the target gate
-    new_completed = [g for g in active_req.completed_gates if gate_sequence.index(g) < target_idx]
-    req_dict["completed_gates"] = new_completed
-
-    state_dict = state.model_dump()
-    state_dict["requirements"][active_req_id] = req_dict
-
-    new_state = StateModel.model_validate(state_dict)
-
+    # Completed gates ahead of the target gate are revoked
+    new_state = update_requirement(
+        state,
+        active_req_id,
+        current_gate=target_gate,
+        status=RequirementStatus.ROLLBACK,
+        unlocked_paths=get_unlocked_paths_for_gate(target_gate, active_req_id),
+        completed_gates=[
+            g for g in active_req.completed_gates if gate_sequence.index(g) < target_idx
+        ],
+    )
     _write_escalation_record(active_req_id, active_req.current_gate, target_gate, reason)
 
     write_state(new_state)

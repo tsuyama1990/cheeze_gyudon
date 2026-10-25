@@ -1,21 +1,30 @@
 """Lightweight, zero-dependency token-block duplicate code detector for Python source files."""
 
+import ast
 import sys
 from collections import defaultdict
 from pathlib import Path
 
 
 def extract_normalized_blocks(file_path: Path, block_size: int = 5) -> dict[str, list[int]]:
-    """Extract line-block hashes ignoring comments and blank lines."""
+    """Extract line-block hashes ignoring comments, blank lines and import statements."""
     blocks: dict[str, list[int]] = defaultdict(list)
     try:
-        lines = [
-            line.strip()
-            for line in file_path.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.strip().startswith("#")
-        ]
+        text = file_path.read_text(encoding="utf-8")
+        import_lines = {
+            n
+            for node in ast.walk(ast.parse(text))
+            if isinstance(node, (ast.Import, ast.ImportFrom))
+            for n in range(node.lineno, (node.end_lineno or node.lineno) + 1)
+        }
     except OSError:
         return blocks
+
+    lines = [
+        line.strip()
+        for number, line in enumerate(text.splitlines(), start=1)
+        if line.strip() and not line.strip().startswith("#") and number not in import_lines
+    ]
 
     for i in range(len(lines) - block_size + 1):
         block_text = "\n".join(lines[i : i + block_size])
