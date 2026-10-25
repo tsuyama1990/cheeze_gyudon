@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Comprehensive unit tests for jtc_gov package and CLI commands."""
 
 from pathlib import Path
@@ -60,26 +61,41 @@ def test_extract_target_file() -> None:
 
 
 @pytest.mark.requirement("REQ-INIT-001")
-def test_verify_tool_allowed() -> None:
+def test_verify_tool_allowed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify verify-tool allows unlocked path."""
+    monkeypatch.chdir(tmp_path)
     runner = CliRunner()
+    Path(".specs").mkdir()
+    Path(".specs/state.json").write_text(
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE1_SPEC", "unlocked_paths": ["README.md"]}}}'
+    )
     result = runner.invoke(main, ["verify-tool", "--file", "README.md"])
     assert result.exit_code == 0
 
 
 @pytest.mark.requirement("REQ-INIT-001")
-def test_verify_tool_denied() -> None:
+def test_verify_tool_denied(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify verify-tool intercepts locked path with exit code 1."""
+    monkeypatch.chdir(tmp_path)
     runner = CliRunner()
+    Path(".specs").mkdir()
+    Path(".specs/state.json").write_text(
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE1_SPEC", "unlocked_paths": ["README.md"]}}}'
+    )
     result = runner.invoke(main, ["verify-tool", "--file", "src/forbidden.py"])
     assert result.exit_code == 1
     assert "Access denied" in result.output
 
 
 @pytest.mark.requirement("REQ-INIT-001")
-def test_verify_tool_via_json_input() -> None:
+def test_verify_tool_via_json_input(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify verify-tool parses tool input JSON and blocks unauthorized file."""
+    monkeypatch.chdir(tmp_path)
     runner = CliRunner()
+    Path(".specs").mkdir()
+    Path(".specs/state.json").write_text(
+        '{"active_requirement_id": "REQ-1", "requirements": {"REQ-1": {"current_gate": "GATE1_SPEC", "unlocked_paths": ["README.md"]}}}'
+    )
     result = runner.invoke(
         main,
         ["verify-tool", "--tool", "Edit", "--input", '{"file_path": "src/bad.py"}'],
