@@ -58,7 +58,7 @@ Target design. The guarantee covers what reaches `main`, not what an agent does 
 - **Guaranteed (G):** a change to `src/` cannot merge unless the decision is approved by a human on `main`; each gate has its design and test pair; spec tags and test markers match in both directions; lint, type, dead-code, duplicate-code and coverage checks pass.
 - **Not guaranteed (N):** what an agent does locally before pushing, including shell writes (local hooks only advise); whether the human's approval was correct; actions by someone with admin rights or the human's credentials.
 - **Assumptions (A), all unmet today:**
-  - A1: the agent's credentials cannot approve or administer. Today the agent and the repository owner use the same GitHub identity.
+  - A1: the agent's credentials cannot approve or administer. Today the agent and the repository owner use the same GitHub identity. Accepted as unmet for the MVP, so the guarantees hold only against a cooperative agent.
   - A2: `main` is protected with required checks and code-owner review. Today it is not.
   - A3: CI runs a checker that the pull request cannot modify. Today a pull request can change the checker and pass (measured, proposal §6).
 
