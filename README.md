@@ -139,6 +139,7 @@ Each phase was merged as an implementation. The gaps are listed in [doc/as_is_in
 - Phase 2: review personas and decision draft. Merged. Review output is fixed text and incompatible with `gate-check`.
 - Phase 3: GitHub Actions. Merged. `main` is not protected.
 - Phase 4: `gov init` scaffolding, an end-to-end lifecycle test, and distortion tests. Merged.
+- Phase 5 (enterprise rollout, audit telemetry, attestation): proposed in a prompt, not started. Deferred until the design is done ([decision D13](doc/open_design_decisions.md)).
 - Next: settle the open decisions, then write the design documents (L1 to L3) before changing code.
 
 ---
