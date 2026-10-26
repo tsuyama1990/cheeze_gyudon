@@ -190,6 +190,12 @@ CI のサインオフ確認ステップは `echo` のみ、PR コメント投稿
 | README: Layer 5 は「air-gapped、credential 漏洩ゼロ」の Actions | 実際は通常の GitHub-hosted runner で `uv sync` / テストを実行。保護ルールは未適用 |
 | README / framework: `gov audit-push` は「air-gapped push validation」 | `pytest` と `trace-check` を実行するだけ |
 
+
+## 9. ロードマップの食い違い [データ]
+
+- `doc/jtc_governance_framework.md` のロードマップは Phase 1〜4。Phase 2 の定義は「フック・コマンドテンプレート(`.agent/`)」。実装された Phase 2 は red team と decision engine で、定義が違う。
+- Phase 5(企業規模の運用展開・テレメトリ・署名による証明)は、リポジトリに記載がない。Jules 向けのプロンプトとしてだけ存在し、ブランチ・PR はない。評価は `open_design_decisions.md` の D13。
+
 ---
 
 ## 訂正履歴
