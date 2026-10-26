@@ -17,6 +17,6 @@ Feature: JTC-Style Governance CLI Engine
 
   Scenario: Rollback state upon downstream escalation
     Given the active gate is "GATE5_IMPL"
-    When the developer executes "gov escalate --to-gate 2 --reason 'API contract change'"
+    When the developer executes "gov escalate --gate 2 --reason 'API contract change'"
     Then the active gate in state.json is reverted to "GATE2_SYSTEM"
     And "src/" is immediately re-locked from tool modification

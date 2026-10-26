@@ -12,7 +12,7 @@ uv run ruff format --check src tests scripts
 echo "[2/6] Mypy Strict Static Type Check..."
 uv run mypy src tests
 
-echo "[3/6] Vulture Dead Code Eradication Check..."
+echo "[3/6] Vulture Dead Code Check..."
 uv run vulture src --min-confidence 80
 
 echo "[4/6] Duplicate Code Detection..."

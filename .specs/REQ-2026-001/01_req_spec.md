@@ -12,5 +12,5 @@ This specification defines the core engine for `jtc-gov`, a Python-based CLI and
 
 ## 3. Mandatory 3-Pole Option Evaluation
 - **Option A (KISS Pole)**: Plain Python standard library CLI (`argparse`, manual JSON schema checks). Zero external dependencies.
-- **Option B (Industry Standard Pole - SELECTED)**: `click` + `pydantic v2` + `jsonschema`. Ultra-strict typing, lightning-fast parsing, robust validation.
+- **Option B (Industry Standard Pole - SELECTED)**: `click` + `pydantic v2` + `jsonschema`. Typed models and schema validation.
 - **Option C (Radical Scalable Pole)**: Event-driven async plugin architecture. High complexity, deferred to future enterprise federations.

@@ -39,11 +39,11 @@ def init_project(ci: str | None = None) -> None:
     }
     settings_file.write_text(json.dumps(settings_data, indent=2) + "\n", encoding="utf-8")
 
-    # 3. Deploy universal agent constitutions: AGENT.md and CLAUDE.md
+    # 3. Deploy agent rules: AGENT.md and CLAUDE.md
     agent_md = Path("AGENT.md")
     if not agent_md.exists():
         agent_md.write_text(
-            "# AGENT CONSTITUTION\n\nFollow all jtc-gov rules, zero-tolerance for AI runaway.\n",
+            "# AGENT RULES\n\nFollow all jtc-gov rules.\n",
             encoding="utf-8",
         )
     claude_md = Path("CLAUDE.md")

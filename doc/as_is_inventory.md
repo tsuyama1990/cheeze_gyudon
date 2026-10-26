@@ -167,7 +167,7 @@ CI のサインオフ確認ステップは `echo` のみ、PR コメント投稿
 | C | `redteam` は要件 ID を受け取らず常に `REQ-000` の配下へ書く(CLI が `requirement_id` を渡していない)。`review-status` も状態から取れないとき `REQ-000`。`REQ-000` は `REQ-YYYY-NNN` 形式(トレーサ・レビューモデル)に合わない | コード参照 | [原典] |
 | D | `COMPLETED` になっても `src/*` が開いたまま | §4.2 | [原典] |
 | E | 仕様 `01_acceptance_tests.feature` の escalate が `--to-gate` を使うが、実装のオプションは `--gate` | feature 内の記述 | [原典] |
-| F | README のロードマップが Phase 1〜4 すべて未完了(`[ ]`)のまま。マージ済み | `README.md` §7 | [原典] |
+| F | README のロードマップが Phase 1〜4 すべて未完了(`[ ]`)のまま、マージ済みだった | `README.md` §7 | [原典] 2026-10-26 に README を書き直して解消 |
 | G | `doc/phase2.md` は 0 バイト | `wc -c` | [データ] |
 | H | `gov doctor` は、この clone で git hooks 未導入のため失敗する | `gov doctor` | [データ] |
 | I | **PreToolUse フックがエージェントを止めない**(場所・構造・終了コードの 3 点。§5.1) | `claude -p` で実測 | [データ] 2026-10-26 |
