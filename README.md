@@ -7,7 +7,9 @@
 [![Coverage](https://img.shields.io/badge/branch__coverage-%E2%89%A590%25-brightgreen.svg)]()
 
 > **"Uncompromising Engineering Rigor Meets Autonomous AI Development"**
-> An industrial-grade, zero-trust governance platform that mechanically halts AI agent runaway, specification drift, code bloat, and self-serving test generation using symmetric V-Model gates, multi-persona red teaming, and kernel-level tool interception.
+> A governance toolkit that gates what an AI agent can merge into `main`: symmetric V-Model gates, review personas, and CI checks against specification drift, code bloat, and self-serving test generation.
+>
+> **Status: design in progress.** Several of the guarantees below are the *target* design and are not yet enforced. What is enforced today, what is not, and what is still undecided are recorded in [doc/as_is_inventory.md](doc/as_is_inventory.md), [doc/open_design_decisions.md](doc/open_design_decisions.md) and [doc/proposal_l1_flow.md](doc/proposal_l1_flow.md).
 
 ---
 
@@ -27,7 +29,7 @@ While autonomous AI coding agents (Claude Code, Jules, Copilot Workspace) accele
 
 ## 2. Core Architecture: The Symmetric V-Model Gates
 
-Development is partitioned into 5 rigid V-Model counterpart gates. An agent **cannot write production code** (`src/`) until Gates 1 through 4 have passed multi-persona adversarial review and received formal sign-off.
+Development is partitioned into 5 V-Model counterpart gates. The target design is that a change to `src/` cannot be merged into `main` until Gates 1 through 4 have passed and a human has signed off the decision (see "Guarantees" in Section 3). Today this is advisory, not enforced (see Section 3).
 
 ```mermaid
 flowchart TD
@@ -81,27 +83,35 @@ flowchart TD
 
 ## 3. Four-Layer Enforcement Taxonomy
 
-Governance rules are physically enforced across four runtime boundaries to guarantee zero-trust execution:
+### Guarantees, non-guarantees and assumptions (target design)
+
+The boundary of the guarantee is **what reaches `main`**, not what an agent does on a local machine. [Rationale](doc/proposal_l1_flow.md)
+
+- **Guarantees (G):** a change to `src/` cannot merge unless the decision gate is human-approved on `main`; design deliverables come in design+test pairs; spec tags and test markers match both ways; quality gates pass.
+- **Non-guarantees (N):** anything an agent does locally before pushing (local hooks are advisory, including shell writes); the correctness of what a human approved; anyone with admin rights or the human's credentials.
+- **Assumptions (A), all currently unmet:** A1 the agent's credentials cannot approve or administer (today the agent and the owner share one GitHub identity); A2 `main` is protected with required checks and code-owner review (today it is not); A3 CI runs a checker the PR cannot modify.
+
+The layers below are what exists in the repository. Their enforcement status as measured on 2026-10-26 is in [doc/as_is_inventory.md](doc/as_is_inventory.md) (Section 5):
 
 ```mermaid
 flowchart LR
     L1["Layer 1: Protocol<br/>(state.json & Schemas)"] --> L2["Layer 2: Review<br/>(Adversarial Personas)"]
     L2 --> L3["Layer 3: Real-time Control<br/>(PreToolUse Hooks)"]
     L3 --> L4["Layer 4: Local Git Gates<br/>(pre-commit & pre-push)"]
-    L4 --> L5["Layer 5: Remote CI/CD<br/>(Air-gapped GitHub Actions)"]
+    L4 --> L5["Layer 5: Remote CI/CD<br/>(GitHub Actions)"]
 ```
 
 1. **Layer 1: Protocol & State Machine (`.specs/state.json`)**:
    Tracks the active requirement ID, current gate, and explicit whitelist of editable paths (`unlocked_paths`).
 2. **Layer 2: Adversarial Red Teaming & Decision Protocol**:
    Automated single-turn review personas that produce strictly validated `gate_review.json` deliverables (max 2 fatal flaws).
-3. **Layer 3: Agent Kernel Interception (`.agent/settings.json` / `PreToolUse`)**:
-   Intercepts file editing tool calls (`Edit`, `Write`) in real-time. If the agent attempts to modify `src/` while `state.json` is at Gate 1–4, the tool call is rejected before execution.
+3. **Layer 3: PreToolUse hook (advisory; `.agent/settings.json`)**:
+   `gov verify-tool` decides whether an edit is allowed for the current gate. **Not wired today:** Claude Code does not load `.agent/settings.json`, ignores a flat hook entry, and treats exit code 1 as non-blocking (only exit code 2 blocks); measured in [doc/proposal_l1_flow.md](doc/proposal_l1_flow.md) (Section 6).
 4. **Layer 4: Local Git Enforcement (`pre-commit` & `pre-push`)**:
    - `pre-commit`: Blocks direct commits to `main`/`master`, executes Ruff (ALL rules), strict Mypy, Vulture, and duplicate code checks.
    - `pre-push`: Runs Pytest with $\ge 90\%$ branch coverage and enforces the **Documentation Sync Guard** (rejects `src/` diffs lacking documentation updates).
 5. **Layer 5: Remote CI/CD**:
-   Air-gapped, zero-credential-leakage GitHub Actions running `gov ci-verify` (bidirectional traceability of the active requirement's `REQ-xxx-Fnn` tags) and `scripts/verify_all.sh` (lint, types, dead/duplicate code, tests with coverage, pre-commit).
+   GitHub Actions (GitHub-hosted runners) running `gov ci-verify` (bidirectional traceability of the active requirement's `REQ-xxx-Fnn` tags) and `scripts/verify_all.sh` (lint, types, dead/duplicate code, tests with coverage, pre-commit).
 
 ---
 
@@ -205,9 +215,9 @@ uv run gov verify-tool --file README.md
   - `gov gate-check`: Deliverable & schema validator across Gates 1–5
   - `gov trace-check`: AST-based bidirectional requirement traceability
   - `gov escalate`: Structured upstream rollback protocol
-  - `gov audit-push`: Air-gapped push validation
+  - `gov audit-push`: local push validation (pytest + trace-check)
 - [ ] **Phase 2: Adversarial Persona Templates & Subagent Review Engine**
-- [ ] **Phase 3: GitHub Actions & Air-Gapped Remote CI Integration**
+- [ ] **Phase 3: GitHub Actions & Remote CI Integration**
 - [ ] **Phase 4: Full Multi-Agent Pilot Operations**
 
 ---

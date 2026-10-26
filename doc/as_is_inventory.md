@@ -123,7 +123,7 @@ GATE5 を通過して `COMPLETED` になっても `src/*` は開いたまま [�
 
 | 層 | 仕組み | 状態 | 根拠 |
 |---|---|---|---|
-| エージェントのツール実行前 | `.agent/settings.json` の PreToolUse | **接続されているか未確認(下記)** | §5.1 |
+| エージェントのツール実行前 | `.agent/settings.json` の PreToolUse | **無効(実測: エージェントを止めない)** | §5.1 |
 | ローカル git | `.pre-commit-config.yaml` | **この clone では未導入** | [データ] `ls .git/hooks` に有効なフックなし。`gov doctor` が `[FAIL] Git hooks: missing pre-commit or pre-push` |
 | CI | `.github/workflows/gate_pipeline.yml` | 稼働中。実行内容は `uv sync` → `gov ci-verify` → `scripts/verify_all.sh` | [原典] |
 | リモートの保護 | `.github/templates/ruleset_main.json` | **未適用(テンプレートのみ)** | [データ] `gh api .../branches/main/protection` → 404 "Branch not protected"、`gh api .../rulesets` → `[]` |
@@ -131,14 +131,18 @@ GATE5 を通過して `COMPLETED` になっても `src/*` は開いたまま [�
 
 CI のサインオフ確認ステップは `echo` のみ、PR コメント投稿ステップは「Placeholder」と明記された `echo` のみ [原典: workflow]。
 
-### 5.1 フックの接続について [データ + 推論]
-- [データ] このセッションで実際に動作している Claude Code のフック(`~/.claude/settings.json`、`~/.claude/hooks/branch_guard.sh`)は、次の形式:
-  - 設定ファイルは `.claude/settings.json` または `~/.claude/settings.json`
-  - 構造は `{"matcher": "...", "hooks": [{"type": "command", "command": "..."}]}`(入れ子)
-  - 入力は **stdin の JSON**(`tool_name` `tool_input.file_path` `cwd`)
-  - ブロックは **exit code 2**
-- [データ] このリポジトリのフックは、`.agent/settings.json` に置かれ、構造がフラット(`{"matcher", "command"}`)、入力を環境変数 `$CLAUDE_TOOL_NAME` `$CLAUDE_TOOL_INPUT_JSON` で受け取る前提で、拒否時に **exit code 1** を返す。リポジトリに `.claude/` ディレクトリは存在しない。
-- [推論・未実測] したがって、現在の `.agent/settings.json` が Claude Code のフックとして機能している可能性は低い。`.agent/` が別のツール向けの規約である可能性は否定できない。実際にフックを接続した状態での拒否動作は、未検証。
+### 5.1 フックの接続について [データ]
+2026-10-26、Claude Code 2.1.310 のヘッドレス実行(`claude -p`)で、各設定のもとで Write を 1 回実行して測った(詳細: `proposal_l1_flow.md` §6 U5)。
+
+| 設定 | フック呼び出し | 書き込み |
+|---|---|---|
+| このリポジトリと同じ flat 形式(`.claude/settings.json` に置いた場合) | 0 回(検証エラー `hooks.PreToolUse.0.hooks: Expected array`) | 成功 |
+| 入れ子形式 + `exit 1`(`verify-tool` の拒否時の終了コード) | 1 回 | **成功**(拒否にならない) |
+| 入れ子形式 + `exit 2` | 1 回 | 拒否 |
+
+- Claude Code のフックは `.claude/settings.json` または `~/.claude/settings.json` に置き、`{"matcher", "hooks": [{"type": "command", "command"}]}` の入れ子構造で、入力を stdin の JSON(`tool_name` `tool_input.file_path` `cwd`)で受け取る。ブロックは exit code 2。
+- このリポジトリの `.agent/settings.json` は、場所・構造・入力の受け取り方(環境変数)・終了コード(1)のすべてが、これと異なる。リポジトリに `.claude/` は存在しない。
+- 結論: 現在の PreToolUse フックは、仮に設定を `.claude/settings.json` に置いても、構造が不正で読み込まれず、構造を直しても exit 1 では拒否にならない。**エージェントを止める経路は、いまのところ存在しない。**
 
 ### 5.2 `verify-tool` の判定仕様 [原典: `verifier.py`, `state_engine.py`, `cli.py`]
 - 対象ツール名: `Edit` `Write` `MultiEdit` `NotebookEdit`。それ以外のツール名は、パスを見ずに許可。
@@ -166,6 +170,7 @@ CI のサインオフ確認ステップは `echo` のみ、PR コメント投稿
 | F | README のロードマップが Phase 1〜4 すべて未完了(`[ ]`)のまま。マージ済み | `README.md` §7 | [原典] |
 | G | `doc/phase2.md` は 0 バイト | `wc -c` | [データ] |
 | H | `gov doctor` は、この clone で git hooks 未導入のため失敗する | `gov doctor` | [データ] |
+| I | **PreToolUse フックがエージェントを止めない**(場所・構造・終了コードの 3 点。§5.1) | `claude -p` で実測 | [データ] 2026-10-26 |
 
 ## 7. 仕様・テストの対応状況 [データ]
 

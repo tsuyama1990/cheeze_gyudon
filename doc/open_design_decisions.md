@@ -48,7 +48,8 @@ D1・D2・D6 の一括提案: [proposal_l1_flow.md](proposal_l1_flow.md)(提案�
   - リモートの `main` は保護されていない(`branches/main/protection` が 404、rulesets が空)。[データ]
   - `ruleset_main.json` と `CODEOWNERS` はテンプレートのまま、宛先もプレースホルダ。[原典+データ]
   - ローカルの pre-commit は、この clone に未導入。[データ]
-  - PreToolUse フックが、実際のエージェント基盤に接続されているか未確認。形式は、この環境で動作している Claude Code のフック(`.claude/settings.json`・入れ子構造・stdin の JSON・ブロックは exit 2)と異なる。[データ+推論]
+  - PreToolUse フックは、Claude Code に読み込まれず、仮に正しい場所・構造に置いても exit 1 では拒否にならない(実測。`as_is_inventory.md` §5.1、欠陥 I)。[データ]
+  - `pull_request` イベントの CI は PR 側のチェッカーを実行するため、PR がチェッカーを書き換えて通過できる(実測。`proposal_l1_flow.md` §6 U3a)。必須ワークフロー(ruleset の `workflows`)は個人リポジトリでは使えない(422)。[データ]
 - **選択肢**:
   1. ローカルのフックを主とする(即時のフィードバックが得られるが、迂回しやすい)。
   2. リモートの保護(必須ステータスチェック + CODEOWNERS 承認)を主とし、ローカルは補助にする。
