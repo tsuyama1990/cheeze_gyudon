@@ -1,0 +1,11 @@
+name: spike-pr-event
+on:
+  pull_request:
+    branches: [spike/target]
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    permissions: {contents: read}
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash spike/check.sh .

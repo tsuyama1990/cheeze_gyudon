@@ -1,8 +1,1 @@
-# Template CODEOWNERS for jtc-gov
-# Assigns human architecture owners for critical decision gates and production code.
-
-# Human Sign-off gate (Gate 4.5/5)
-05_decision.md @architecture-reviewers
-
-# Production Code
-src/ @core-maintainers
+* @tsuyama1990

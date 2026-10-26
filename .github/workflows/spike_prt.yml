@@ -1,0 +1,16 @@
+name: spike-pr-target-event
+on:
+  pull_request_target:
+    branches: [spike/target]
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    permissions: {contents: read}
+    steps:
+      - name: base side (trusted checker)
+        uses: actions/checkout@v4
+        with: {path: base}
+      - name: PR head as data only (never executed)
+        uses: actions/checkout@v4
+        with: {ref: "${{ github.event.pull_request.head.sha }}", path: pr}
+      - run: bash base/spike/check.sh pr
