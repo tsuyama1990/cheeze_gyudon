@@ -1,4 +1,7 @@
 # AI-Driven Development Governance Platform (JTC-Style Governance Framework)
+
+> **Note (2026-10-26).** This is the original requirements outline. It predates the measurements in [as_is_inventory.md](as_is_inventory.md) and [proposal_l1_flow.md](proposal_l1_flow.md). Where they disagree (for example hook behaviour and exit codes), those two documents are correct.
+
 ## Requirements Definition Outline & Basic Design Document
 
 ---
@@ -8,10 +11,10 @@
 While software development leveraging generative AI (such as Claude Code) dramatically improves development speed, it introduces the following critical challenges:
 
 - **Uncontrolled Code Bloat / YAGNI Violations**: Neglecting the reuse of existing code and automatically generating unnecessary helpers, excessive abstractions, and unrequested fallbacks.
-- **Spec Drift (Specification vs. Implementation Drift)**: Loss of consistency between requirements definition (upper V-model) and implementation/testing (lower V-model), leading to AI writing and passing self-serving, invalid tests.
+- **Spec Drift (Specification vs. Implementation Drift)**: Loss of consistency between requirements definition (upper V-model) and implementation/testing (lower V-model), leading to AI writing and passing circular, invalid tests.
 - **Blurred Boundaries of Responsibility**: "Evaporation of responsibility" caused by delegating final decisions to AI, alongside the hollowing out of prompt instructions ("wishful instructions").
 
-This platform integrates the symmetry of the **V-Model** (simultaneous formulation of design and corresponding test design), GitHub Next's **Spec-Driven Development** philosophy, the **JTC (Multi-angle Review & Ringi Approval)** model, and strict physical hooks from the **Python ecosystem**. It provides a development pipeline that mechanically and structurally blocks AI runaway across all transition phases of the V-model.
+This platform integrates the symmetry of the **V-Model** (simultaneous formulation of design and corresponding test design), GitHub Next's **Spec-Driven Development** philosophy, the **JTC (Multi-angle Review & Ringi Approval)** model, and hooks from the **Python ecosystem**. It provides a development pipeline that blocks unintended AI changes at each transition of the V-model.
 
 ---
 
@@ -28,16 +31,16 @@ Rather than separating the development lifecycle into a "design side (left-downw
 4. **Detailed / Class Design & Unit Test Scaffold Design**
 5. **Coding / Test Implementation & Mechanical Verification (Implementation & Verification)**
 
-Unless the completed deliverables of the preceding phase (design document + corresponding test specification/scaffold code), verification results at each gate, and approval flags are all present, transition to the next phase (unlocking file editing permissions and branch promotion) is physically prohibited.
+Unless the completed deliverables of the preceding phase (design document + corresponding test specification/scaffold code), verification results at each gate, and approval flags are all present, transition to the next phase (unlocking file editing permissions and branch promotion) is blocked.
 
 #### Multi-Angle Red Teaming & Single-Turn Review with PM-AI Triage
 To prevent bureaucratic infinite-review deadlock while maintaining adversarial rigor, reviews operate under a **Single-Turn Triage Model**:
-- **Pluggable & Context-Aware Personas**: Gate 1 personas are not rigid; they adapt to project scale via configuration (`config.yaml`):
+- **Pluggable & Context-Aware Personas**: Gate 1 personas are not fixed; they adapt to project scale via configuration (`config.yaml`):
   - *Solo / Small Tool Preset (2-3 personas)*: UX Critic (Needs/Simplicity), Lazy Senior Dev (OSS/KISS), FinOps/Sec Lite (API cost & license sanity).
   - *Startup / SaaS Preset (3 personas)*: CPO (MVP Scope), Tech Lead (Coupling/Feasibility), SRE/Sec (Resilience/Auth).
   - *Enterprise / JTC Preset (4 personas)*: Legal (IP/Terms), Finance (ROI/Budget), CPO (Strategy), COO (SLA/Ops).
   - *Dynamic AI Recommendation*: PM-AI can dynamically assign personas based on feature tags (e.g. adding Legal for payment modules).
-- **Single-Turn Review Rule**: Each persona conducts **exactly one review turn**, strictly limited to at most **2 Fatal Flaws** outputting structured JSON logs.
+- **Single-Turn Review Rule**: Each persona conducts **exactly one review turn**, limited to at most **2 Fatal Flaws** outputting structured JSON logs.
 - **Autonomous Research-First Ambiguity Resolution**:
   - When encountering ambiguities or open questions in Gate 1, the AI agent must **first conduct self-directed investigation** via Web search and codebase exploration rather than stalling development with immediate human inquiries.
   - The AI records reasoned assumptions in `01_req_spec.md`. Direct human inquiries are reserved solely for unresolvable business-critical branch points.
@@ -50,7 +53,7 @@ To prevent bureaucratic infinite-review deadlock while maintaining adversarial r
   - PM-AI renders an asynchronous concise summary (Selected Option + 3-line Gherkin digest) to the developer/PR interface. Human intervention is asynchronous: work proceeds unimpeded unless the developer explicitly intervenes.
 
 #### Gate 2: Basic System Design, Ecosystem Survey & System Test Formulation
-Gate 2 bridges business requirements to system architecture while strictly preventing the "Re-inventing the Wheel" anti-pattern:
+Gate 2 bridges business requirements to system architecture while preventing the "Re-inventing the Wheel" anti-pattern:
 - **Mandatory Ecosystem Survey (Anti-Wheel-Reinvention Discipline)**:
   - Before writing any architectural specification, PM-AI must conduct a mandatory survey of existing external resources (battle-tested PyPI packages, standard cloud/SaaS APIs, and existing internal modules).
   - *Core Ethos*: "The best code is no code at all." Writing hundreds of lines of custom code when a standard, well-maintained library exists is treated as a critical architectural defect.
@@ -58,7 +61,7 @@ Gate 2 bridges business requirements to system architecture while strictly preve
 - **Pre-definition of Configuration Schema (`config.yaml`)**:
   - Hardcoded magic numbers, default URLs, and timeouts are prohibited. All operational variables must be formally declared in `02_system_design.md` with explicit configuration schemas before implementation.
 - **Mock Contract & Mandatory Failure Matrix (`02_system_tests.md`)**:
-  - All external integrations must declare their mocking contract (e.g. `pytest-mock`, `respx`) upfront to prevent self-serving, invalid test suites.
+  - All external integrations must declare their mocking contract (e.g. `pytest-mock`, `respx`) upfront to prevent circular, invalid test suites.
   - Must include a **Mandatory Failure Matrix** covering 4 standard edge scenarios: ① Timeouts, ② Authentication errors, ③ Malformed payload validation, and ④ Upstream service unavailability.
 - **Gate 2 Red Teaming Personas**:
   - Evaluated by **Tech Lead / Architect** (Loose coupling, KISS, reuse of existing assets) and **SRE / Security** (Threat modeling, auth boundaries, resilience).
@@ -84,7 +87,7 @@ src/
 - Standardizes on a typed domain exception tree deriving from a project root (`AppError`):
   - `DomainError(AppError)` $\rightarrow$ `EntityNotFoundError`, `BusinessRuleViolationError`
   - `AdapterError(AppError)` $\rightarrow$ `ExternalAPIError`, `ConfigurationError`
-- AI models are strictly forbidden from writing `raise Exception("...")` or catching broad `except Exception:` without explicit re-raising.
+- AI models must not write `raise Exception("...")` or catching broad `except Exception:` without explicit re-raising.
 
 ##### 4. Explicit Sync vs. Async Policy (Zero Function Color Drift)
 - Every component must explicitly declare its concurrency model in Gate 3:
@@ -93,7 +96,7 @@ src/
   - Mixing `sync` and `async` inside the same service layer without explicit thread pool offloading is a Fatal Flaw.
 
 ##### 5. Structured Logging & Print Prohibition
-- Raw `print()` statements are physically blocked via `ruff` (`T201`).
+- Raw `print()` statements are blocked by `ruff` (`T201`).
 - All logging must use standard structured loggers (`logging.getLogger(__name__)` or `structlog`) with structured key-value context (`logger.info("event", extra={...})`).
 
 ##### 6. SOLID Architecture Review Matrix (Enforced at Gate 3 Review)
@@ -115,7 +118,7 @@ Every `03_architecture.md` must satisfy the following checklist:
 - Evaluated by **Principal Architect** (Coupling, SOLID compliance, dependency hygiene) and **Integration QA Engineer** (Contract tests, rollback sanity).
 
 #### Gate 4: Detailed Class Design, Unit Test Scaffold Lock & Human Sign-off
-Gate 4 creates the final concrete blueprint and locks down tests before physical code modification in `src/` is unlocked:
+Gate 4 creates the final concrete blueprint and locks the tests before `src/` is unlocked:
 - **Complete Class & Method Signatures (`04_detail_design.md`)**:
   - Full type-annotated signatures for all classes, methods, and functions including Pydantic models.
   - Explicit algorithm workflows, error states, and external library call paths.
@@ -152,7 +155,7 @@ Once Gate 4 human sign-off unlocks `src/`, Gate 5 runs the mechanical implementa
     4. "Where to Review": Highlighting the core 50 lines of business logic rather than boilerplate.
 - **Post-Merge Lifecycle Cleanup (`gov complete`)**:
   - Upon merge to `main`, `state.json` marks the requirement as `COMPLETED`.
-  - `unlocked_paths` is immediately reset to empty, physically re-locking `src/` until the next requirement achieves Gate 4 human approval.
+  - `unlocked_paths` is immediately reset to empty, re-locking `src/` until the next requirement achieves Gate 4 human approval.
   - Deletes transient feature branches and archives `.specs/` logs.
 
 ### 2.2 Cross-Cutting Safety & Governance Protocols
@@ -171,23 +174,23 @@ To structurally prevent "Spec Drift"—where downstream designs silently diverge
    - *Audit Focal Questions*:
      1. **Omission Check**: Did the current design drop or weaken any requirement or acceptance scenario from Gate 1/2?
      2. **Phantom Scope Check**: Did the author introduce unrequested features, speculative abstractions, or out-of-scope APIs?
-     3. **Option Alignment**: Does the implementation strictly adhere to the 3-pole option chosen in the parent gate?
+     3. **Option Alignment**: Does the implementation adhere to the 3-pole option chosen in the parent gate?
    - The third-party auditor outputs a structured review (`drift_audit.json`). Any unresolved fatal drift results in an automatic gate check failure (`gov gate-check` exit code `1`).
 
 #### 2.2.2 Conditional Spiral Prototyping (Triggered Only by Technical Uncertainty)
 To maintain high development velocity without dogmatic process overhead:
 - **Not Mandatory for Standard Tasks**: Routine CRUD, internal business logic, or familiar stack changes skip prototyping and proceed immediately to design.
-- **Trigger Conditions (Max 3 Loops in `sandbox/`)**: Prototyping is strictly reserved for:
+- **Trigger Conditions (Max 3 Loops in `sandbox/`)**: Prototyping is reserved for:
   1. Evaluating newly introduced external dependencies not currently in `pyproject.toml`.
   2. Verifying unverified third-party API contracts or undocumented payload behaviors.
 - Temporary spikes run in `sandbox/` and are excluded from Git production tracking.
 
 #### 2.2.3 Reverse Escalation Protocol (Downstream-to-Upstream Rollback)
 When downstream implementation (Gate 5) or detailed design (Gate 4) uncovers that upstream design assumptions are technically impossible, unviable, or unacceptably degrading:
-- **Strict Prohibition of Code-First Patching**: The agent is strictly prohibited from silently hacking workarounds in code while leaving upstream specifications out of sync.
+- **No Code-First Patching**: The agent must not silently hack workarounds in code while leaving upstream specifications out of sync.
 - **Rollback Mechanics via `gov escalate`**:
   1. *Escalation Filing*: Agent or developer invokes `gov escalate --to-gate [1-3] --reason "<rationale>"`.
-  2. *Physical Workspace Re-lock*: `state.json` rolls back `current_gate` to the designated upstream gate. `PreToolUse` immediately re-locks `src/`, physically preventing product code edits while upstream designs are in flux.
+  2. *Workspace Re-lock*: `state.json` rolls back `current_gate` to the designated upstream gate. `PreToolUse` immediately re-locks `src/`, preventing product code edits while upstream designs are in flux.
   3. *Audit Log Creation*: Generates a structured escalation record (`.specs/REQ-xxx/escalations/ESC-NNN.json`) documenting the technical blocker, affected requirements, and proposed revision options.
   4. *Upstream Re-Gate & Human Consultation*: Upstream specifications and counterpart tests are updated with a formal revision entry. If the escalation modifies Gate 1 business scope or acceptance criteria, a direct human inquiry is triggered.
   5. *Test Scaffold Realignment*: Once upstream re-approval is secured, downstream test scaffolds and contracts are refreshed, and human sign-off (`05_decision.md`) is re-acquired before `src/` is unlocked again.
@@ -198,7 +201,7 @@ When downstream implementation (Gate 5) or detailed design (Gate 4) uncovers tha
 - **Final Approval (Sign-off)** must be explicitly performed by a human (Development Lead / Product Owner) on a UI such as a GitHub PR before Gate 5 implementation unlocks.
 
 #### 2.2.5 Bidirectional Traceability (Ensuring Upper/Lower V-Model Consistency)
-- Mechanically verifies a consistent traceability chain from Requirements Definition (`REQ-xxx`) through Acceptance Tests (`.feature`), Detailed Design, and Unit Test Code (`@pytest.mark.requirement("REQ-xxx")`).
+- Verifies a consistent traceability chain from Requirements Definition (`REQ-xxx`) through Acceptance Tests (`.feature`), Detailed Design, and Unit Test Code (`@pytest.mark.requirement("REQ-xxx")`).
 - Blocks builds and merges upon detecting unauthorized implementations not present in the design (scope creep) or requirements lacking tests (unfulfilled requirements).
 
 ### 2.3 Structural Mitigation of 5 Universal Software Engineering Distortions
@@ -207,19 +210,19 @@ Beyond specification drift, real-world development projects frequently suffer fr
 
 | Universal Distortion | Root Cause in AI/Team Development | Failure Impact | Architectural & Mechanical Countermeasure |
 | :--- | :--- | :--- | :--- |
-| **1. Tautological / Self-Serving Testing** | AI modifies test assertions and expected values to artificially match faulty implementations just to make CI green. | False confidence; 100% test coverage yet catastrophic runtime failures. | **Test Scaffold Lock (Gate 4 $\rightarrow$ 5 Barrier)**: Test scaffold files, assertions, and parameterized cases are frozen prior to implementation. Altering test expectations during Gate 5 is intercepted by `PreToolUse`. |
-| **2. Patch-on-Patch Decay (Spaghetti Patching)** | Applying localized `if-else` band-aids without inspecting holistic component architecture. | Exploding cyclomatic complexity, unmaintainable control flow, fragile regressions. | **Complexity & Duplication Ceilings**: Hard block on functions with cyclomatic complexity $> 10$ (`ruff`) and zero tolerance for duplicate blocks (`jscpd`). Enforces SOLID refactoring over patching. |
-| **3. Works-on-My-Machine (Env Drift)** | Undocumented local OS tools, global virtualenvs, unpinned packages, and OS-specific path separators. | Builds break immediately on clean CI runners, production containers, or peer machines. | **Hermetic Single-Source Environment**: Mandatory `uv.lock` lockfile verification (`uv lock --check`) on pre-push. All configuration strictly externalized into typed Pydantic schemas. |
-| **4. Zombie Code & Orphaned Tests** | Leaving obsolete functions, commented-out dead code, or unmaintained tests "just in case" during refactoring. | Context window dilution; AI models hallucinate by reading stale code artifacts. | **Zero-Residue Dead Code Eradication**: AST-level unreferenced symbol detection (`vulture`) and git rejection of commented-out code blocks. Purges orphaned test cases. |
-| **5. Mock Drift (Contract Hallucination)** | Manually written mock objects that drift away from true upstream API response structures. | Integration tests pass locally while physical HTTP requests crash in production. | **Schema-Driven Fixture Synchronization**: Mocks must be generated from or validated against OpenAPI/JSON schemas rather than fabricated ad-hoc by LLMs. |
+| **1. Tautological Testing** | AI modifies test assertions and expected values to artificially match faulty implementations just to make CI green. | False confidence; 100% test coverage yet catastrophic runtime failures. | **Test Scaffold Lock (Gate 4 $\rightarrow$ 5 Barrier)**: Test scaffold files, assertions, and parameterized cases are frozen prior to implementation. Altering test expectations during Gate 5 is intercepted by `PreToolUse`. |
+| **2. Patch-on-Patch Decay (Spaghetti Patching)** | Applying localized `if-else` band-aids without inspecting holistic component architecture. | Exploding cyclomatic complexity, unmaintainable control flow, fragile regressions. | **Complexity & Duplication Ceilings**: Hard block on functions with cyclomatic complexity $> 10$ (`ruff`) and no duplicate blocks (`jscpd` in this outline; the repository uses `scripts/check_duplicates.py`). Enforces SOLID refactoring over patching. |
+| **3. Works-on-My-Machine (Env Drift)** | Undocumented local OS tools, global virtualenvs, unpinned packages, and OS-specific path separators. | Builds break immediately on clean CI runners, production containers, or peer machines. | **Hermetic Single-Source Environment**: Mandatory `uv.lock` lockfile verification (`uv lock --check`) on pre-push. All configuration is externalized into typed Pydantic schemas. |
+| **4. Zombie Code & Orphaned Tests** | Leaving obsolete functions, commented-out dead code, or unmaintained tests "just in case" during refactoring. | Context window dilution; AI models hallucinate by reading stale code artifacts. | **Dead Code Removal**: AST-level unreferenced symbol detection (`vulture`) and git rejection of commented-out code blocks. Purges orphaned test cases. |
+| **5. Mock Drift (Contract Hallucination)** | Manually written mock objects that drift away from true upstream API response structures. | Integration tests pass locally while real HTTP requests crash in production. | **Schema-Driven Fixture Synchronization**: Mocks must be generated from or validated against OpenAPI/JSON schemas rather than fabricated ad-hoc by LLMs. |
 
 ### 2.4 System & Non-Functional Requirements
 
 - **Distribution Format (Independence)**:
   Governance rules, prompts, and verification scripts are centrally managed in an independent shared repository (`jtc-gov`) and can be injected into target development repositories as a CLI tool (`gov`).
-- **Local Physical Blocking (Inner Loop)**:
-  Uses Git `pre-commit` hooks and command execution hooks to mechanically evaluate syntax, types, diff coverage, and duplicate code, rejecting commits upon violation.
-- **Remote Physical Blocking (Outer Loop)**:
+- **Local Blocking (Inner Loop)**:
+  Uses Git `pre-commit` hooks and command execution hooks to evaluate syntax, types, diff coverage, and duplicate code, rejecting commits upon violation.
+- **Remote Blocking (Outer Loop)**:
   Integrates with GitHub Actions and standard GitHub Branch Protection / Rulesets to make merging impossible without human approval and all-GREEN CI checks.
 
 ---
@@ -286,9 +289,9 @@ To reliably govern autonomous coding agents without relying on "wishful instruct
 
 | Control Layer | Mechanism | Intervention Timing | Enforcement Strength (Bypass Resistance) | Primary Responsibility & Design Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **L0: OS / Runtime** | **Permissions & Tool Whitelisting** | Pre-tool invocation (OS level) | **Absolute / Inviolable**<br>(Agent cannot observe or override) | - Prohibit destructive shell execution (`sudo`, `rm -rf`, uncontrolled egress).<br>- Provide strictly whitelisted tool sets. |
-| **L1: Interception** | **Runtime Hooks** (`PreToolUse`, `PostToolUse`) | Milliseconds before/after tool invocation | **Physical Interception**<br>(Violations cause immediate Exit code `1`) | - Real-time file access control (e.g. aborting any edit to `src/` prior to Gate 4 sign-off).<br>- Dynamic validation of tool argument payloads. |
-| **L2: State / Data** | **State Machine** (`state.json` & JSON Schemas) | State transition & verification | **Deterministic**<br>(Mechanically verifiable truth) | - Canonical Single Source of Truth for active requirement, current gate, and `unlocked_paths`.<br>- Completely independent of model memory or conversational drift. |
+| **L0: OS / Runtime** | **Permissions & Tool Whitelisting** | Pre-tool invocation (OS level) | **Fixed by the OS or runtime**<br>(the agent cannot override it from inside the session) | - Prohibit destructive shell execution (`sudo`, `rm -rf`, uncontrolled egress).<br>- Provide whitelisted tool sets. |
+| **L1: Interception** | **Runtime Hooks** (`PreToolUse`, `PostToolUse`) | Milliseconds before/after tool invocation | **Interception**<br>(Claude Code blocks a tool call only on exit code `2`; exit code `1` does not block, measured 2026-10-26) | - Real-time file access control (e.g. aborting any edit to `src/` prior to Gate 4 sign-off).<br>- Dynamic validation of tool argument payloads. |
+| **L2: State / Data** | **State Machine** (`state.json` & JSON Schemas) | State transition & verification | **Deterministic**<br>(Checkable by tools) | - Canonical Single Source of Truth for active requirement, current gate, and `unlocked_paths`.<br>- Completely independent of model memory or conversational drift. |
 | **L3: Workflow** | **Skills & Slash Commands** (`.agent/commands/`) | Triggered by user or agent | **Procedural Framing**<br>(Template & format standardization) | - Encapsulate complex operations (`/gov-pair`, `/gov-redteam`, `/gov-advance`) into predictable, reproducible routines.<br>- Eliminate prompt ambiguity during gate generation. |
 | **L4: Cognition** | **AGENT.md / System Instructions** | Every conversation turn | **Cognitive Guidance**<br>(Advisory; vulnerable to drift) | - Behavioral guidelines: YAGNI philosophy, search-before-write, code-style ethos.<br>- Guides *how* the agent thinks, not *whether* physical boundaries exist. |
 | **L5: Inner Verification** | **Git Hooks** (`pre-commit`) | Commit creation time | **Deterministic Local Blocker** | - Static syntax, typing (`pyright`), duplicate code (`jscpd`), coverage (`diff-cover`), and traceability AST matching (`gov trace-check`). |
@@ -298,7 +301,7 @@ To reliably govern autonomous coding agents without relying on "wishful instruct
 
 1. **Never Delegate Security or Permissions to Prompts (`AGENT.md`)**:
    - *Anti-Pattern*: Writing *"Please do not modify `src/` until Gate 4 is approved"* in `AGENT.md`. Models easily violate this when complex contexts or external prompts demand quick fixes.
-   - *Proper Separation*: `AGENT.md` navigates priorities (*"Focus on test specifications during Gate 1-4"*), while the `PreToolUse` Hook physically kills the process if `src/` is touched.
+   - *Proper Separation*: `AGENT.md` navigates priorities (*"Focus on test specifications during Gate 1-4"*), while the `PreToolUse` Hook blocks the tool call if `src/` is touched.
 2. **Skills Standardize Procedures; State Governs Outcomes**:
    - *Anti-Pattern*: Relying on natural language prompts to perform adversarial reviews on demand.
    - *Proper Separation*: Skills (`/gov-redteam`) execute the exact review routine, and the data schema (`gate_review.schema.json`) deterministically validates the output before state transition.
@@ -334,7 +337,7 @@ Prior to adoption, the integration strategy was subjected to adversarial review 
 In response to the Red Teaming audit, the integration is governed by the following three architectural constraints:
 
 1. **Strict Inner Loop / Outer Loop Air Gap (Offline Local Determinism)**:
-   - **Inner Loop (Local Hooks: `PreToolUse`, `pre-commit`, `pre-push`)**: Strictly network-isolated. Executes zero `gh` API calls. Relies exclusively on local files (`.specs/state.json`, local Git commits, local AST parsing, local `pytest`). Execution latency guaranteed under 200ms.
+   - **Inner Loop (Local Hooks: `PreToolUse`, `pre-commit`, `pre-push`)**: Network-isolated. Executes zero `gh` API calls. Relies exclusively on local files (`.specs/state.json`, local Git commits, local AST parsing, local `pytest`). Execution latency guaranteed under 200ms.
    - **Outer Loop (Remote CI & PR Gate: GitHub Actions)**: The GitHub CLI (`gh`) and Octokit are delegated exclusively to the remote CI environment for posting Red Teaming PR comments, verifying required branch rulesets, and validating human reviewer sign-off.
 2. **Pinned Version Governance (Zero Drift Deployment)**:
    - Eliminates unpinned `uvx` executions. `jtc-gov` is declared as a pinned dependency in the target repository's `pyproject.toml` (`jtc-gov == X.Y.Z`).
@@ -356,7 +359,7 @@ In response to the Red Teaming audit, the integration is governed by the followi
 
 ### 4.1 Protocol Design (Deliverable Schemas)
 
-Defines deliverables and state models for all gates using JSON Schema so hooks can mechanically determine pass/fail status without relying on prompt instructions alone.
+Defines deliverables and state models for all gates using JSON Schema so hooks can determine pass/fail status without relying on prompt instructions alone.
 
 #### 4.1.1 State Management Schema (`.specs/state.json`)
 Tracks the active feature/requirement lifecycle, the active gate, and white-listed paths permitted for modification in the current phase.
@@ -502,7 +505,7 @@ A Python command-line tool distributed from the shared governance repository.
 
 ---
 
-### 4.3 Zero-Trust External Skill Sandboxing
+### 4.3 External Skill Sandboxing
 
 To allow developers to install external Claude skills or community prompt libraries in the future without compromising governance integrity:
 1. **OS/Hook Level Sovereignty**: External skills cannot bypass `PreToolUse` and `pre-commit` verification regardless of prompt instructions.
@@ -512,7 +515,7 @@ To allow developers to install external Claude skills or community prompt librar
 
 ### 4.4 Claude Code Control & Extension Design (Layer 2 & 3)
 
-Combines top-level declarative policy (`CLAUDE.md`), physical execution interception (`PreToolUse` Hook), and structured workflow commands (`.claude/commands/`).
+Combines top-level declarative policy (`CLAUDE.md`), execution interception (`PreToolUse` Hook), and structured workflow commands (`.claude/commands/`).
 
 #### 4.4.1 Real-Time Interception Hook (`.claude/settings.json`)
 Claude Code supports hook scripts triggered before tool execution. When Claude attempts to run `Edit`, `Write`, or `MultiEdit`, the `PreToolUse` hook intercepts the operation before file modification occurs on disk.
@@ -533,7 +536,7 @@ Claude Code supports hook scripts triggered before tool execution. When Claude a
 * **Execution Behavior**:
   1. `gov verify-tool` parses the target file path from `$CLAUDE_TOOL_INPUT_JSON`.
   2. Compares the path against `state.json.requirements[active_id].unlocked_paths`.
-  3. **Unauthorized Path (e.g. `src/` touched before Gate 4 human sign-off)**: Exits with non-zero code and returns a structured stderr error message explaining the violation:
+  3. **Unauthorized Path (e.g. `src/` touched before Gate 4 human sign-off)**: Exits with code `2` (the code Claude Code treats as blocking) and returns a structured stderr error message explaining the violation:
      > `[GOVERNANCE ERROR] Editing 'src/service.py' is blocked in GATE1_SPEC. You must complete Gate 1-4 and acquire human sign-off in 05_decision.md before modifying product code.`
   4. Claude Code receives the failure output and aborts the tool call, preventing unauthorized file writes before they touch disk.
 
@@ -554,7 +557,7 @@ Top-level instructions persisted in the root repository to guide model reasoning
 - **Strict YAGNI Penalization**: Reject any speculative abstraction, unreferenced helper function, or unrequested fallback logic.
 - **Requirement Traceability**: All test functions written during Gate 4 scaffold and Gate 5 implementation must carry `@pytest.mark.requirement("REQ-xxx")`.
 
-### 4.5 Physical Hook & Verification Design (Python & GitHub)
+### 4.5 Hook & Verification Design (Python & GitHub)
 
 #### Local Gate (`pre-commit` & Claude PreToolUse Hook)
 - `gov verify-tool`: Intercepts tool calls before Claude executes file edits.
@@ -577,22 +580,22 @@ To prevent code degradation, patch-on-patch spaghetti, and orphaned assets durin
 
 #### 4.6.1 Branch Naming & Sizing Limits
 - **Branch Naming Standard**:
-  - New feature development: `feat/REQ-YYYY-NNN-<short-slug>` (strictly linked to the requirement ID in `.specs/`).
+  - New feature development: `feat/REQ-YYYY-NNN-<short-slug>` (linked to the requirement ID in `.specs/`).
   - Bug fixes: `fix/ISSUE-NNN-<short-slug>`.
   - Refactoring/Governance updates: `refactor/<short-slug>` or `gov/<short-slug>`.
 - **Branch Size Upper Bound (Progressive Blast Radius Control)**:
-  - **Pragmatic Initial Threshold (Hard Gate)**: To prevent initial development friction while strictly catching AI runaway/hallucination, the initial hard block is set at **1,500 net changed lines** (excluding generated mocks, data fixtures, and `.specs/` logs via `.govignore`).
+  - **Pragmatic Initial Threshold (Hard Gate)**: To prevent initial development friction while catching unintended or fabricated AI changes, the initial hard block is set at **1,500 net changed lines** (excluding generated mocks, data fixtures, and `.specs/` logs via `.govignore`).
   - **Target Guideline (Soft Review Target)**: Branches are encouraged to remain under **400 net changed lines** and **2 to 3 days** of active lifespan. If a feature naturally expands beyond this, Gate 1 decomposes it into sub-features (`REQ-xxx-F01`, `REQ-xxx-F02`).
 
 #### 4.6.2 Pre-Push Mechanical & Cognitive Audit Checklist (Local CI/CD Simulation)
-Prior to pushing to origin or requesting review, both the developer and the AI agent must run the pre-push audit suite (`gov audit-push` or Git `pre-push` hook). **Pushing to origin is physically rejected by the hook unless all local quality checks and local CI/CD pipelines pass completely (100% GREEN).**
+Prior to pushing to origin or requesting review, both the developer and the AI agent must run the pre-push audit suite (`gov audit-push` or Git `pre-push` hook). **Pushing to origin is rejected by the hook unless all local quality checks and local CI/CD pipelines pass completely (100% GREEN).**
 
 1. **Local CI/CD Dry-Run Execution (Shift-Left CI)**:
    - Before push, the entire CI pipeline is run locally (e.g. via `pytest tests/`, full package build `python -m build`, or local workflow runners like `act`).
    - Any failing test, regression in existing suites, or environment build failure aborts the push instantly. Never rely on remote GitHub Actions to find easily catchable failures.
 2. **Documentation Synchronization (No Spec Drift)**:
    - Every modified behavior, schema change, or new CLI option must be accompanied by updates in `doc/`, `README.md`, or the corresponding `.specs/` documents. Code changes without corresponding doc diffs trigger a push rejection.
-3. **Dead Code & Obsolete Test Eradication (Zero Residue)**:
+3. **Dead Code & Obsolete Test Removal (no leftovers)**:
    - When existing functions, classes, or helper methods are superseded by new implementations, the legacy code must be **completely removed** (not commented out or left as unused fallback).
    - Tests covering deprecated or replaced logic must be purged or updated. No orphan tests or ignored (`@pytest.mark.skip`) tests are permitted without explicit rationale.
 4. **No Hardcoding & Constant Externalization**:
@@ -620,7 +623,7 @@ Prior to pushing to origin or requesting review, both the developer and the AI a
          ├─ [Gate E: Dead Code] AST/vulture check confirms zero unreferenced orphan symbols
          └─ [Gate F: Config Check] Regex audit confirms zero hardcoded secrets/magic URLs
          │
-    (3) Physical Push Permitted only if ALL GATES PASS
+    (3) Push permitted only if all gates pass
 ```
 
 ---
@@ -657,14 +660,14 @@ To transition from architectural specification to an operational, battle-tested 
 ---
 
 ### Phase 2: Agent Policy, Hooks & Command Templates (`.agent/`)
-*Objective*: Configure Layer 2 (Policy) and Layer 3 (Control) adapters so AI coding assistants (Claude Code, Cursor, etc.) execute within physical constraints.
+*Objective*: Configure Layer 2 (Policy) and Layer 3 (Control) adapters so AI coding assistants (Claude Code, Cursor, etc.) execute within constraints.
 
 1. **Vendor-Neutral Policy & Instructions (`AGENT.md`)**:
    - Clean, comprehensive instructions embedding the 5 Universal Distortions, SOLID guidelines, and TDD execution protocols.
    - Symlink/adapter automation for `CLAUDE.md`.
 2. **Interception Hook Configuration (`.agent/settings.json`)**:
    - `PreToolUse` hook definitions binding `Edit|Write|MultiEdit` to `gov verify-tool`.
-   - Stderr error formatting guiding the agent when file modification is physically blocked.
+   - Stderr error formatting guiding the agent when file modification is blocked.
 3. **Structured Governance Slash Commands (`.agent/commands/`)**:
    - `/gov-status`: Visualizes active gate, unlocked paths, and pending items.
    - `/gov-pair [gate]`: Injects dual template pairs (Spec + Test Counterpart).
@@ -675,7 +678,7 @@ To transition from architectural specification to an operational, battle-tested 
    - Complete `.pre-commit-config.yaml` template configured with Ruff, Pyright, jscpd, and diff-cover.
    - Standalone Git `pre-push` script invoking `gov audit-push`.
 5. **Acceptance Criteria for Phase 2**:
-   - Claude Code attempting to write `src/service.py` during Gate 1 is physically terminated and correctly guides itself toward `01_req_spec.md`.
+   - Claude Code attempting to write `src/service.py` during Gate 1 is blocked and guided itself toward `01_req_spec.md`.
 
 ---
 
@@ -689,7 +692,7 @@ To transition from architectural specification to an operational, battle-tested 
 2. **Branch Protection & Ruleset Standard**:
    - Configuration template requiring all CI checks green and designated code owner (human) review approval before merge.
 3. **Acceptance Criteria for Phase 3**:
-   - A mock PR lacking human sign-off or failing `gov trace-check` is physically blocked from merging by GitHub Rulesets.
+   - A mock PR lacking human sign-off or failing `gov trace-check` is blocked from merging by GitHub Rulesets.
 
 ---
 

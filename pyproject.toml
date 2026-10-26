@@ -16,9 +16,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    # Ultra-Strict Linting & Formatting
+    # Linting and formatting
     "ruff>=0.4.4",
-    # Ultra-Strict Static Type Checking
+    # Static type checking
     "mypy>=1.10.0",
     "pyright>=1.1.363",
     # Testing & Branch Coverage
@@ -43,7 +43,7 @@ packages = ["src/jtc_gov"]
 
 
 # ==============================================================================
-# 1. RUFF (Ultra-Strict Linter & Formatter)
+# 1. RUFF (linter and formatter)
 # ==============================================================================
 [tool.ruff]
 target-version = "py311"
@@ -95,7 +95,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 # ==============================================================================
-# 2. MYPY (Ultra-Strict Static Type Checker)
+# 2. MYPY (static type checker, strict mode)
 # ==============================================================================
 [tool.mypy]
 python_version = "3.11"
@@ -175,7 +175,7 @@ exclude_lines = [
 ]
 
 # ==============================================================================
-# 5. VULTURE (Dead Code Eradication)
+# 5. VULTURE (dead code)
 # ==============================================================================
 [tool.vulture]
 min_confidence = 80

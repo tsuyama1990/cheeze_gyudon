@@ -1,218 +1,148 @@
-# JTC-Style AI-Driven Development Governance Platform (`jtc-gov`)
+# jtc-gov
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![uv](https://img.shields.io/badge/package_manager-uv-green.svg)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Mypy Strict](https://img.shields.io/badge/mypy-strict-blue.svg)](https://mypy.readthedocs.io/)
-[![Coverage](https://img.shields.io/badge/branch__coverage-%E2%89%A590%25-brightgreen.svg)]()
 
-> **"Uncompromising Engineering Rigor Meets Autonomous AI Development"**
-> An industrial-grade, zero-trust governance platform that mechanically halts AI agent runaway, specification drift, code bloat, and self-serving test generation using symmetric V-Model gates, multi-persona red teaming, and kernel-level tool interception.
+A CLI and CI checks that control what an AI coding agent can merge into `main`. Development is split into 5 gates. Each gate needs a design document and its matching test specification before the next gate opens.
+
+**Status: design in progress.** Part of what this README describes is the target design and is not enforced yet. Enforcement status measured on 2026-10-26:
+
+- [doc/as_is_inventory.md](doc/as_is_inventory.md): what exists and what is enforced
+- [doc/open_design_decisions.md](doc/open_design_decisions.md): decisions still open
+- [doc/proposal_l1_flow.md](doc/proposal_l1_flow.md): proposed overall flow and spike results
 
 ---
 
-## 1. Executive Summary & Problem Space
+## 1. Problems addressed
 
-While autonomous AI coding agents (Claude Code, Jules, Copilot Workspace) accelerate code production by orders of magnitude, unconstrained agents systematically exhibit five universal software engineering distortions:
-
-| AI Distortion | Failure Mode in Unconstrained AI | Mechanical Mitigation in `jtc-gov` |
+| Problem with AI agents | What exists today | Not done |
 | :--- | :--- | :--- |
-| **1. Tautological Testing** | AI writes buggy code and writes matching buggy tests that test nothing, yielding green CI on invalid logic. | **Scaffold Lock**: Tests and scaffolds are defined upstream in Gates 1–4 before `src/` is unlocked. AI cannot alter test assertions during implementation. |
-| **2. Patch-on-Patch Decay** | AI fixes bugs with superficial try/except wrappers and monkey-patches, causing cyclomatic complexity to explode. | **Complexity Ceiling**: Ruff McCabe limit (`complexity <= 10`), max 30 statements per function, zero tolerance for print debugging (`T201`). |
-| **3. Works-on-My-Machine** | AI installs undeclared system libraries or relies on unpinned transitive versions. | **Hermetic Reproducibility**: Strict `uv.lock`, Pydantic Settings environment validation, and zero implicit globals. |
-| **4. Zombie / Dead Code** | AI duplicates helpers instead of refactoring existing modules, accumulating bloat. | **Vulture Zero Tolerance**: Dead code detection with confidence $\ge 80\%$ fails the build immediately. |
-| **5. Mock Drift** | Mocked interfaces silently drift from external API realities. | **Contract Scaffolding**: Schema-driven test fixtures generated directly from OpenAPI/JSON Schema. |
+| **Tautological tests**: the agent writes wrong code and tests that match it | `gate-check` requires a test specification file next to each design file | Changes to test assertions are not detected |
+| **Patch-on-patch**: try/except wrappers and workarounds raise complexity | Ruff McCabe limit 10, at most 30 statements per function, `print` banned (`T201`), run in CI | |
+| **Works on my machine**: undeclared tools, unpinned versions | `uv.lock` is committed | Typed settings (`pydantic-settings` is a dependency but unused) |
+| **Dead and duplicate code** | Vulture (confidence 80+) and `scripts/check_duplicates.py` run in CI | |
+| **Mock drift**: mocks diverge from the real API | | Not implemented |
 
 ---
 
-## 2. Core Architecture: The Symmetric V-Model Gates
-
-Development is partitioned into 5 rigid V-Model counterpart gates. An agent **cannot write production code** (`src/`) until Gates 1 through 4 have passed multi-persona adversarial review and received formal sign-off.
+## 2. Gates
 
 ```mermaid
 flowchart TD
-    subgraph Downstream_Design["Downstream Design (Upstream V)"]
-        G1_D["Gate 1: Requirements Definition<br/><code>01_req_spec.md</code>"]
-        G2_D["Gate 2: System Architecture<br/><code>02_system_design.md</code>"]
-        G3_D["Gate 3: Integration Design<br/><code>03_architecture.md</code>"]
-        G4_D["Gate 4: Detailed Class Design<br/><code>04_detail_design.md</code>"]
-    end
-
-    subgraph Decision["Gate 4.5: Tri-Polar Decision & Human Sign-off"]
-        DEC["Tri-Polar Option Selection & Sign-off<br/><code>05_decision.md</code><br/>(KISS vs. Standard vs. Scalable)"]
-    end
-
-    subgraph Upstream_Verification["Upstream Verification (Counterpart V)"]
-        G1_T["Acceptance Tests (BDD/Gherkin)<br/><code>01_acceptance_tests.feature</code>"]
-        G2_T["System Test Scenarios<br/><code>02_system_tests.md</code>"]
-        G3_T["Integration Contract Tests<br/><code>03_integration_tests.md</code>"]
-        G4_T["Unit Test Scaffold Lock<br/><code>04_unit_test_scaffold/</code>"]
-    end
-
-    subgraph Implementation["Gate 5: Implementation & Verification"]
-        G5_CODE["Code & Test Execution<br/><code>src/</code> + <code>tests/</code><br/>(Branch Coverage >= 90%)"]
-    end
-
-    G1_D <== Pair Enforced ==> G1_T
-    G1_T --> G2_D
-    G2_D <== Pair Enforced ==> G2_T
-    G2_T --> G3_D
-    G3_D <== Pair Enforced ==> G3_T
-    G3_T --> G4_D
-    G4_D <== Pair Enforced ==> G4_T
-    G4_T --> DEC
-    DEC --> G5_CODE
+    G1["Gate 1: Requirements<br/>01_req_spec.md + 01_acceptance_tests.feature"] --> G2["Gate 2: System design<br/>02_system_design.md + 02_system_tests.md"]
+    G2 --> G3["Gate 3: Integration design<br/>03_architecture.md + 03_integration_tests.md"]
+    G3 --> G4["Gate 4: Detailed design and decision<br/>04_detail_design.md + tests/test_*.py<br/>05_decision.md with human sign-off"]
+    G4 --> G5["Gate 5: Implementation<br/>src/ + tests/"]
 ```
 
-### Gate Deliverables Matrix
+| Gate | Design deliverable | Test deliverable |
+| :--- | :--- | :--- |
+| 1 | `.specs/REQ-xxx/01_req_spec.md` | `01_acceptance_tests.feature` |
+| 2 | `02_system_design.md` | `02_system_tests.md` |
+| 3 | `03_architecture.md` | `03_integration_tests.md` |
+| 4 | `04_detail_design.md`, `05_decision.md` | `tests/test_*.py` |
+| 5 | `src/` | `tests/` with `@pytest.mark.requirement("REQ-xxx-Fnn")` |
 
-| Gate | Phase | Design Deliverable | Counterpart Test Deliverable | Required Review Personas |
-| :--- | :--- | :--- | :--- | :--- |
-| **Gate 1** | Requirements Definition | `.specs/REQ-xxx/01_req_spec.md` | `01_acceptance_tests.feature` | UX Critic, Lazy Senior Dev, FinOps/Sec |
-| **Gate 2** | System Architecture | `.specs/REQ-xxx/02_system_design.md` | `02_system_tests.md` | System Architect, SRE Persona |
-| **Gate 3** | Integration Design | `.specs/REQ-xxx/03_architecture.md` | `03_integration_tests.md` | Interface Architect, QA Lead |
-| **Gate 4** | Detailed Class Design | `.specs/REQ-xxx/04_detail_design.md` | `04_unit_test_scaffold/` | Code Quality Critic, Security Persona |
-| **Decision**| Tri-Polar Triage | `.specs/REQ-xxx/05_decision.md` | Multi-Option Trade-off Analysis | **Human Sign-Off / Negative Consensus** |
+`gov gate-check --gate N` checks that the files exist and that any reviews for the gate are APPROVED, then moves to the next gate. It does not read file contents.
 
-> Human sign-off is a line `HUMAN_SIGN_OFF: APPROVED` written by a human in `05_decision.md`; `gov gate-check --gate 4` refuses to advance without it. There is no command that signs off on the human's behalf.
-| **Gate 5** | Coding & Verification | `src/` (Implementation) | `tests/` (`@pytest.mark.requirement`) | Automated CI, Branch Coverage $\ge 90\%$ |
+Gate 4 also requires the line `HUMAN_SIGN_OFF: APPROVED` in `05_decision.md`. **Known gap:** `gov draft-decision` writes that line itself, so the sign-off is not human-only yet (defect A in [doc/as_is_inventory.md](doc/as_is_inventory.md), decision D3 in [doc/open_design_decisions.md](doc/open_design_decisions.md)).
 
 ---
 
-## 3. Four-Layer Enforcement Taxonomy
+## 3. What is guaranteed
 
-Governance rules are physically enforced across four runtime boundaries to guarantee zero-trust execution:
+Target design. The guarantee covers what reaches `main`, not what an agent does on a local machine ([rationale](doc/proposal_l1_flow.md)).
 
-```mermaid
-flowchart LR
-    L1["Layer 1: Protocol<br/>(state.json & Schemas)"] --> L2["Layer 2: Review<br/>(Adversarial Personas)"]
-    L2 --> L3["Layer 3: Real-time Control<br/>(PreToolUse Hooks)"]
-    L3 --> L4["Layer 4: Local Git Gates<br/>(pre-commit & pre-push)"]
-    L4 --> L5["Layer 5: Remote CI/CD<br/>(Air-gapped GitHub Actions)"]
-```
+- **Guaranteed (G):** a change to `src/` cannot merge unless the decision is approved by a human on `main`; each gate has its design and test pair; spec tags and test markers match in both directions; lint, type, dead-code, duplicate-code and coverage checks pass.
+- **Not guaranteed (N):** what an agent does locally before pushing, including shell writes (local hooks only advise); whether the human's approval was correct; actions by someone with admin rights or the human's credentials.
+- **Assumptions (A), all unmet today:**
+  - A1: the agent's credentials cannot approve or administer. Today the agent and the repository owner use the same GitHub identity.
+  - A2: `main` is protected with required checks and code-owner review. Today it is not.
+  - A3: CI runs a checker that the pull request cannot modify. Today a pull request can change the checker and pass (measured, proposal §6).
 
-1. **Layer 1: Protocol & State Machine (`.specs/state.json`)**:
-   Tracks the active requirement ID, current gate, and explicit whitelist of editable paths (`unlocked_paths`).
-2. **Layer 2: Adversarial Red Teaming & Decision Protocol**:
-   Automated single-turn review personas that produce strictly validated `gate_review.json` deliverables (max 2 fatal flaws).
-3. **Layer 3: Agent Kernel Interception (`.agent/settings.json` / `PreToolUse`)**:
-   Intercepts file editing tool calls (`Edit`, `Write`) in real-time. If the agent attempts to modify `src/` while `state.json` is at Gate 1–4, the tool call is rejected before execution.
-4. **Layer 4: Local Git Enforcement (`pre-commit` & `pre-push`)**:
-   - `pre-commit`: Blocks direct commits to `main`/`master`, executes Ruff (ALL rules), strict Mypy, Vulture, and duplicate code checks.
-   - `pre-push`: Runs Pytest with $\ge 90\%$ branch coverage and enforces the **Documentation Sync Guard** (rejects `src/` diffs lacking documentation updates).
-5. **Layer 5: Remote CI/CD**:
-   Air-gapped, zero-credential-leakage GitHub Actions running `gov ci-verify` (bidirectional traceability of the active requirement's `REQ-xxx-Fnn` tags) and `scripts/verify_all.sh` (lint, types, dead/duplicate code, tests with coverage, pre-commit).
+### Layers
+
+| Layer | Component | Status (2026-10-26) |
+| :--- | :--- | :--- |
+| 1 | `.specs/state.json`: active requirement, current gate, editable paths | Works. The agent can edit it |
+| 2 | Review personas (`gov redteam`) | Fixed text, no LLM call. Output cannot be read by `gate-check` |
+| 3 | PreToolUse hook (`gov verify-tool`) | **Does not stop the agent.** Claude Code does not load `.agent/settings.json`, ignores the flat hook format, and treats exit code 1 as non-blocking (only exit code 2 blocks) |
+| 4 | `pre-commit` and `pre-push` hooks | Defined in `.pre-commit-config.yaml`. Not installed by default; run `pre-commit install` |
+| 5 | GitHub Actions: `gov ci-verify` and `scripts/verify_all.sh` | Runs on pull requests. `main` has no protection rules |
 
 ---
 
-## 4. Repository Layout & Dogfooding Architecture
-
-This repository strictly dogfoods the `jtc-gov` framework:
+## 4. Repository layout
 
 ```text
-cheeze_gyudon/
-├── .agent/
-│   └── settings.json                  # Real-time PreToolUse tool interception hook
-├── .specs/
-│   ├── state.json                     # Finite State Machine tracking active gate
-│   └── REQ-2026-001/                  # Active requirement: jtc-gov Phase 1 CLI
-│       ├── 01_req_spec.md             # Gate 1 Requirements & 3-pole options
-│       └── 01_acceptance_tests.feature# Gate 1 BDD Acceptance test scenarios
-├── doc/
-│   └── jtc_governance_framework.md    # Canonical specification document (710 lines)
-├── src/
-│   └── jtc_gov/                       # Production governance CLI package
-│       ├── __init__.py                # Package metadata
-│       └── cli.py                     # Click CLI entrypoint skeleton
-├── tests/
-│   └── test_version.py                # Initial unit test linked to REQ-INIT-001
-├── .pre-commit-config.yaml            # Ultra-strict local pre-commit & pre-push hooks
-├── pyproject.toml                     # Modern uv/hatchling project configuration
-├── AGENT.md                           # Universal agent constitution & guardrails
-├── CLAUDE.md                          # Claude Code adapter instructions
-└── README.md                          # This document
+.agent/settings.json        PreToolUse hook entry (not loaded by Claude Code)
+.specs/state.json           active requirement and gate
+.specs/REQ-2026-001/        specification of the CLI itself
+.github/                    CI workflow, CODEOWNERS and ruleset templates
+doc/                        specification, inventory, open decisions, proposal
+src/jtc_gov/
+  cli.py                    click commands
+  domain/                   models and exceptions
+  services/                 state, gate checks, escalation, tracing, hook decision, red team, decision draft
+  scaffold/                 `gov init`
+  diagnostics/              `gov doctor`
+  integrations/github/      PR comment and summary formatting
+tests/                      unit, e2e and distortion tests
+scripts/                    verify_all.sh, check_duplicates.py, doc_sync_guard.py
+AGENT.md                    rules for AI agents
+CLAUDE.md                   points to AGENT.md
 ```
 
 ---
 
-## 5. Reverse Escalation Protocol (`gov escalate`)
+## 5. Escalation
 
-When an AI agent is in Gate 5 (Implementation) and discovers an insurmountable upstream specification flaw or dependency block:
-1. The agent is **strictly prohibited** from patching around the problem with local hacks.
-2. The agent executes `gov escalate --gate <target_gate> --reason "<detailed explanation>"`.
-3. The state machine rolls back `state.json` to the target gate (e.g. `GATE1_SPEC`), immediately **re-locking** `src/` and unlocking the upstream specification file.
-4. The specification and test counterpart are corrected, re-reviewed, and re-approved before `src/` can be edited again.
+If an agent in Gate 5 finds a flaw in an upstream specification, it does not work around it in code. It runs:
+
+```bash
+gov escalate --gate <target_gate> --reason "<reason>"
+```
+
+This rolls `state.json` back to the target gate, writes `.specs/<REQ>/escalations/ESC-NNN.json`, and removes the `src/` edit permission. The specification and its tests are fixed and gone through the gates again before `src/` can be edited.
 
 ---
 
-## 6. Quickstart & Local Development
+## 6. Setup and checks
 
-### Prerequisites
-- Python 3.11+
-- [`uv`](https://docs.astral.sh/uv/) (Astral Python package manager)
-- Git
-
-### Setup
+Requirements: Python 3.11+, [`uv`](https://docs.astral.sh/uv/), Git.
 
 ```bash
-# 1. Clone repository
 git clone https://github.com/tsuyama1990/cheeze_gyudon.git
 cd cheeze_gyudon
-
-# 2. Sync dependencies hermetically using uv
 uv sync
-
-# 3. Install pre-commit and pre-push constitution hooks
 uv run pre-commit install --hook-type pre-commit --hook-type pre-push
 ```
 
-### Running Checks
-
 ```bash
-# Run Ruff linting and formatting
-uv run ruff check --fix
-uv run ruff format
-
-# Run ultra-strict Mypy type verification
-uv run mypy src tests
-
-# Run dead code eradication check
-uv run vulture src --min-confidence 80
-
-# Run one-stop governance verification suite (Ruff, Mypy, Vulture, Duplicates, Pytest, Hooks)
-bash scripts/verify_all.sh
-
-# Run duplicate code detection
-uv run python scripts/check_duplicates.py
-
-# Test the governance CLI status and tool verification
-# (`gov init` in a new project scaffolds requirement REQ-0000-001; rename it to your own REQ-YYYY-NNN)
-uv run gov status
+bash scripts/verify_all.sh          # ruff, mypy, vulture, duplicates, pytest with coverage, pre-commit
+uv run gov status                   # current requirement and gate
 uv run gov verify-tool --file README.md
 ```
 
+`gov init` in a new project creates the requirement `REQ-0000-001`. Rename it to your own `REQ-YYYY-NNN`.
+
 ---
 
-## 7. Roadmap & Next Steps
+## 7. Roadmap
 
-- [x] **Phase 0: Canonical Specification & Dogfooding Setup**
-  - Exhaustive architecture document (`doc/jtc_governance_framework.md`)
-  - Ultra-strict pre-commit and pre-push guardrails
-  - Initial dogfooding state structure (`.specs/state.json`)
-- [ ] **Phase 1: Core CLI & State Engine Implementation (Jules Handover)**
-  - `gov init`: Scaffold `.specs/` and hook configurations
-  - `gov verify-tool`: Low-latency (<50ms) tool interception engine
-  - `gov gate-check`: Deliverable & schema validator across Gates 1–5
-  - `gov trace-check`: AST-based bidirectional requirement traceability
-  - `gov escalate`: Structured upstream rollback protocol
-  - `gov audit-push`: Air-gapped push validation
-- [ ] **Phase 2: Adversarial Persona Templates & Subagent Review Engine**
-- [ ] **Phase 3: GitHub Actions & Air-Gapped Remote CI Integration**
-- [ ] **Phase 4: Full Multi-Agent Pilot Operations**
+Each phase was merged as an implementation. The gaps are listed in [doc/as_is_inventory.md](doc/as_is_inventory.md) (Sections 6 and 8).
+
+- Phase 0: specification and dogfooding setup. Done.
+- Phase 1: CLI and state engine (`init`, `verify-tool`, `gate-check`, `trace-check`, `escalate`, `audit-push`). Merged. The hook is not effective.
+- Phase 2: review personas and decision draft. Merged. Review output is fixed text and incompatible with `gate-check`.
+- Phase 3: GitHub Actions. Merged. `main` is not protected.
+- Phase 4: `gov init` scaffolding, an end-to-end lifecycle test, and distortion tests. Merged.
+- Next: settle the open decisions, then write the design documents (L1 to L3) before changing code.
 
 ---
 
 ## 8. License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-Phase 3 updates for PR formatting and summary generation completed.
+MIT. See [LICENSE](LICENSE).
