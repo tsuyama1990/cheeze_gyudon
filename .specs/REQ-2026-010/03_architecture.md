@@ -25,7 +25,7 @@ L1 の記述と、L2 で分かったことが食い違った箇所。二重管�
 
 ## 1. 型(`domain`)
 
-すべて Pydantic v2(`frozen`、`extra="forbid"`)。JSON スキーマは型から生成する。 [決定: DEC-003、DEC-028]
+`Approval`(外部の JSON を読む型)だけが Pydantic v2(`frozen`、`extra="forbid"`)。JSON スキーマはこの型から生成する。他の型は標準の `frozen` データクラス(YAGNI。L3 §1)。 [決定: DEC-003、DEC-028。L3 の結論による修正]
 
 | 型 | フィールドと制約 |
 |---|---|
@@ -285,10 +285,10 @@ for t in head_count: if head_count[t] > base_count.get(t, 0): Finding(Q.pragma, 
 
 ```
 src/jtc_gov/
-  domain/    ids.py  models.py  gates.py  machinery.py
+  domain/    ids.py  models.py  repo.py  gates.py  machinery.py
   derive/    approvals.py  markers.py  gates.py
   checks/    k.py  d.py  t.py  __init__.py(run_all)
-  adapters/  cli.py  claude_hook.py  repo_git.py
+  adapters/  cli.py  claude_hook.py  repo_git.py  report.py(出力の整形。cli と claude_hook が共有する)
 ```
 現行モジュールとの対応は 02 §10(L2 の結論で #3 を反映)。
 
