@@ -33,7 +33,7 @@
 | 全体設計(構成要素、規則 K・D・T・Q、フック、フロー) | `02_system_design.md`(この文書) | README は 1 段落の概要と参照 |
 | ゲートごとの成果物の定義 | コード(`domain`)。設計の意図は §5 に 1 回だけ | AGENT.md、README は参照 |
 | 数値とツールの設定(複雑度、カバレッジの閾値、型の厳しさ) | `pyproject.toml` | 文書に数値を書かない(「`pyproject.toml` の設定値」と書く) |
-| 品質ゲートの入口 | `scripts/gate.sh` | CI、pre-commit、README、AGENT.md は gate.sh を呼ぶか参照する |
+| 品質ゲートの入口 | `scripts/gate.sh` | CI、全体設定のフック、マージスクリプトは gate.sh を呼ぶ。README、AGENT.md は参照。pre-commit は衛生フックだけで、品質検査は gate.sh が行う |
 | 決定 | `decisions.md` | DEC-ID で参照。経緯を他に書かない |
 | レビューの指摘と対応 | `reviews/` | 設計書に経緯の本文を書かない |
 | 実測値(件数、現状の強制状況) | `background/as_is_inventory.md`(日付つき) | 引用せず参照する。やむを得ず書くときは日付を付ける |
@@ -90,10 +90,10 @@
 
 | ID | 適用対象 | 規則 |
 |---|---|---|
-| **K** | `src/**` を変更し、かつ `tests/**` または `.specs/**` も変更する PR | (a) `base` に、有効な承認が**ちょうど 1 つ**ある。0 個、または 2 個以上なら失敗 (b) この PR は、`approval.json` と、マニフェストが列挙する承認済みファイル(01〜05)を変更しない (c) この PR が変更するテストの marker の要件と、変更する `.specs/<REQ>/` の要件は、すべて (a) の要件である |
-| **D** | `approval.json` を変更または削除する PR(決定 PR) | 状態 `open`: (a) `head` でゲート 1〜4 の成果物(設計と、対のテスト仕様の**文書**)がそろっている。ゲート 4 の対は文書(`04_unit_tests.md`)で、実行可能なテスト(`tests/`)ではない (b) ハッシュが `head` の内容と一致し、承認済みファイルの集合が `head` の `.specs/<REQ>/0[1-5]_*` と一致する (d) 変更後、`open` の承認が 2 つ以上にならない。状態 `closed`: (c) 仕様の全機能タグに対応するテストの marker が存在する。状態 `withdrawn`: 追加の条件なし(未完の要件の取り下げ)。(a)(b) は `closed`・`withdrawn` には求めない(履歴として閉じる要件を含む)。`approval.json` の削除は失敗 |
-| **T** | すべての PR | (a) テスト関数は、形式が `REQ-YYYY-NNN-Fnn` の `requirement` marker を持つ (b) marker の要件の仕様(`.specs/<REQ>/01_req_spec.md`)が存在し、そのタグに含まれる (c) テストのファイル(`test_*.py`、`*_test.py`)は `tests/**` にある |
-| **Q** | すべての PR | lint(ruff)、型(mypy)、デッドコード(vulture)、テストの合格、分岐カバレッジが `pyproject.toml` の設定値以上、`src/**` の**変更行のカバレッジ**が設定値以上(`diff-cover`、dev 依存に既にある。閾値は設定に置き、`--fail-under` を必ず指定する。テストコードは対象外)。新しい `# pragma: no cover` の追加は失敗。`closed` にする決定 PR(D(c))も、この Q を通る |
+| **K** | `src/**` を変更し、かつ `tests/**` または `.specs/**` も変更する PR | (a) `base` に、有効な承認が**ちょうど 1 つ**ある。0 個、または 2 個以上なら失敗 (b) この PR は、`approval.json` と、`.specs/<REQ>/` の `0[1-5]_*`(承認済みのものと、新しく足すもの)を変更しない (c) この PR が変更するテストの marker の要件と、変更する `.specs/<REQ>/` の要件は、すべて (a) の要件である |
+| **D** | `approval.json` を変更または削除する PR(決定 PR) | 状態 `open`: (a) `head` でゲート 1〜4 の成果物(設計と、対のテスト仕様の**文書**)がそろっている。ゲート 4 の対は文書(`04_unit_tests.md`)で、実行可能なテスト(`tests/`)ではない (b) ハッシュが `head` の内容と一致し、承認済みファイルの集合が `head` の `.specs/<REQ>/0[1-5]_*` と一致する (d) 変更後、`open` の承認が 2 つ以上にならない。状態 `closed`: (c) 仕様(`01_req_spec.md`)が存在し、その全機能タグに対応するテストの marker が存在する。状態 `withdrawn`: 追加の条件なし(未完の要件の取り下げ)。(a)(b) は `closed`・`withdrawn` には求めない(履歴として閉じる要件を含む)。`approval.json` の削除は失敗 |
+| **T** | すべての PR | (a) テスト関数は、形式が `REQ-YYYY-NNN-Fnn` の `requirement` marker を持つ (b) marker の要件の仕様(`.specs/<REQ>/01_req_spec.md`)が存在し、そのタグに含まれる (c) テストのファイル(`test_*.py`)は `tests/**` にある |
+| **Q** | すべての PR | lint(ruff)、型(mypy)、デッドコード(vulture)、テストの合格、分岐カバレッジが `pyproject.toml` の設定値以上、`src/**` の**変更行のカバレッジ**が設定値以上(`diff-cover`、dev 依存に既にある。閾値は設定に置き、`--fail-under` を必ず指定する。テストコードは対象外)。新しい `# pragma: no cover` の追加は失敗(`gov check` の内容検査。[03_architecture.md](03_architecture.md) §4.5)。`closed` にする決定 PR(D(c))も、この Q を通る |
 
 - **承認が有効** = マニフェストが存在し、状態が `open` で、承認済みファイルのハッシュが `base` の現在の内容と一致し、承認済みの集合が `base` の `.specs/<REQ>/0[1-5]_*` と一致する(承認後に足したファイルがあると無効)。
 - 仕様のタグにテストがない状態(途中)は、`open` の間は許す。そろっているかは、`closed` にする決定 PR のときだけ確認する(D(c))。 [決定: G3 の限定(2026-10-27)]
@@ -121,7 +121,7 @@ A1([01_req_spec.md](01_req_spec.md) §3)が未成立なので、次は規約で�
 CI は、これらの PR であることを出力に明示する(人間のマージが必要と表示する)。強制はしない。A1 の解消後に、CODEOWNERS による承認の強制へ引き上げる。 [推論]
 
 ### 4.4 検証機構(変更に人間のマージが必要なもの)
-`.github/**`、`scripts/**`、`pyproject.toml`、`uv.lock`、`.pre-commit-config.yaml`、`.claude/settings.json`、`.claude/hooks/**`、任意の `conftest.py`、`AGENT.md`、`CLAUDE.md`、`src/jtc_gov/{domain,derive,checks}/**`、`src/jtc_gov/adapters/{claude_hook,repo_git}/**`。 [決定: フック設定はプロジェクトごと(2026-10-27)。推論: 一覧]
+`.github/**`、`scripts/**`、`pyproject.toml`、`uv.lock`、`.pre-commit-config.yaml`、`.gitattributes`、`.claude/settings.json`、`.claude/hooks/**`、任意の `conftest.py`、`AGENT.md`、`CLAUDE.md`、`src/jtc_gov/**`(この製品自身のリポジトリでは、全体がチェッカー。他のリポジトリには存在しないパス)。 [決定: フック設定はプロジェクトごと(2026-10-27)。推論: 一覧]
 
 `pull_request` の CI は PR 側のチェッカーを実行するため、PR がチェッカーを書き換えて通過できる [データ: proposal §6 U3a]。この穴は C2・C3 で補う。`main` 側のチェッカーで実行する方式は L2 で実測して決める。
 
