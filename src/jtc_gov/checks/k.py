@@ -3,11 +3,10 @@ from collections.abc import Sequence
 
 from jtc_gov.derive.approvals import valid_open
 from jtc_gov.derive.changes import related_requirements
-from jtc_gov.domain.gates import APPROVAL_FILE, GUARDED_PREFIX
+from jtc_gov.domain.gates import APPROVAL_FILE, GUARDED_PREFIX, SRC_PREFIX
 from jtc_gov.domain.models import Change, Finding
 from jtc_gov.domain.repo import Repo
 
-_SRC = "src/"
 _AUX = ("tests/", ".specs/")
 
 
@@ -24,7 +23,7 @@ def _guarded(path: str, req: str) -> bool:
 
 
 def check_k(repo: Repo, changes: Sequence[Change]) -> list[Finding]:
-    if not (_touches(changes, (_SRC,)) and _touches(changes, _AUX)):
+    if not (_touches(changes, (SRC_PREFIX,)) and _touches(changes, _AUX)):
         return []
     opens = valid_open(repo, "base")
     if len(opens) != 1:

@@ -2,7 +2,7 @@ import json
 
 from jtc_gov.derive.approvals import load_approvals, valid_open, validity
 from jtc_gov.derive.gates import display_gate
-from jtc_gov.domain.models import Approval, CheckResult, ParseFailure
+from jtc_gov.domain.models import Approval, ApprovalState, CheckResult, ParseFailure
 from jtc_gov.domain.repo import Repo
 
 _SHORT_MAX_LINES = 3
@@ -35,8 +35,10 @@ def findings_json(result: CheckResult) -> str:
 def _approval_line(repo: Repo, req: str, approval: Approval | ParseFailure) -> str:
     if isinstance(approval, ParseFailure):
         return f"{req}: 承認ファイルが読めない ({approval.reason})"
-    reasons = validity(repo, "head", approval)
     gate = display_gate(repo, "head", req)
+    if approval.state is not ApprovalState.OPEN:
+        return f"{req}: {approval.state.value} / ゲート {gate}"
+    reasons = validity(repo, "head", approval)
     if reasons:
         detail = "; ".join(f"{r.kind}: {r.detail}" for r in reasons)
         return f"{req}: {approval.state.value} / 失効 ({detail}) / ゲート {gate}"

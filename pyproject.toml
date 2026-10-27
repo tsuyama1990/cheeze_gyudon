@@ -26,6 +26,8 @@ dev = [
     "vulture>=2.11",
     "pre-commit>=3.7.1",
     "types-click>=7.1.8",
+    "pyyaml>=6.0.3",
+    "types-pyyaml>=6.0.12.20260906",
 ]
 
 [project.scripts]
