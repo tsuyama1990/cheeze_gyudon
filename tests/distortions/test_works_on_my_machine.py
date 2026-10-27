@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.requirement("REQ-2026-004-F05")
+@pytest.mark.requirement("REQ-2026-010-F04")
 def test_unpinned_dependency_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Simulates agent introducing unpinned external dependencies without uv.lock -> Rejected."""
     monkeypatch.chdir(tmp_path)

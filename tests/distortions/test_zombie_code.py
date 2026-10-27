@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.requirement("REQ-2026-004-F03")
+@pytest.mark.requirement("REQ-2026-010-F04")
 def test_zombie_code_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Simulates agent creating unused helper functions -> Blocked by Vulture."""
     monkeypatch.chdir(tmp_path)
