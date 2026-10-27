@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from jtc_gov.domain.exceptions import GateCheckFailedError
-from jtc_gov.domain.models import GateId, GateReviewDeliverable, RequirementStatus, StateModel
+from jtc_gov.domain.legacy_models import GateId, GateReviewDeliverable, RequirementStatus, StateModel
 from jtc_gov.services.state_engine import (
     get_active_requirement,
     read_state,

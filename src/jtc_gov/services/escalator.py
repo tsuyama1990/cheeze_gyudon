@@ -2,7 +2,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jtc_gov.domain.models import GateId, RequirementStatus
+from jtc_gov.domain.legacy_models import GateId, RequirementStatus
 from jtc_gov.services.gate_keeper import get_unlocked_paths_for_gate
 from jtc_gov.services.state_engine import (
     get_active_requirement,

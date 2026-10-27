@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from jtc_gov.cli import main as cli
-from jtc_gov.domain.models import GateId, RequirementItem, RequirementStatus, StateModel
+from jtc_gov.domain.legacy_models import GateId, RequirementItem, RequirementStatus, StateModel
 from jtc_gov.services.state_engine import is_path_unlocked
 
 

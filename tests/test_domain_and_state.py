@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from jtc_gov.domain.exceptions import StateCorruptedError
-from jtc_gov.domain.models import (
+from jtc_gov.domain.legacy_models import (
     GateId,
     GateReviewDeliverable,
     RequirementItem,
