@@ -5,7 +5,7 @@
 
 ## 1. 方針
 
-- **E2E(`L1-Exx`)**: 一時ディレクトリに作った実 git リポジトリ(`base` と `head` のコミット)を入力に、`gov` の入口(CLI、フック、GitHub Action のエントリ)の出力と終了コードを確かめる。内部関数は呼ばない。 [推論]
+- **E2E(`L1-Exx`)**: 一時ディレクトリに作った実 git リポジトリ(`base` と `head` のコミット)を入力に、`gov` の入口(CLI、フック)の出力と終了コードを確かめる。内部関数は呼ばない。 [推論]
 - **統合テスト(`L1-Ixx`)**: 偽の `Repo` を使って、入口どうしの判定の一致を確かめる。E2E の定義(内部関数を呼ばない)には当たらないので分ける。
 - **構造検査(`L1-Sxx`)**: 依存の向き、`Repo` 以外から読まないこと、設計と実装の対応を、ソースの静的検査で確かめる。
 - **設定の検査(`L1-Cxx`)**: GitHub 側の設定を読み取って確かめる。
@@ -89,7 +89,10 @@
 | ID | 入力 | 期待する結果 | 規則 | 現行 |
 |---|---|---|---|---|
 | L1-E43 | 表駆動: ゲート 1〜4 のペアの有無の組み合わせ(少なくとも 6 通り) | 表示用の現在ゲートが「ペアがそろっていない最小のゲート」になる。CI の合否には影響しない | §5.2 | できない |
-| L1-E44 | 表駆動: §4.4 の全パス(`.github/**`、`scripts/**`、`pyproject.toml`、`uv.lock`、`.pre-commit-config.yaml`、`.claude/settings.json`、`.claude/hooks/**`、`conftest.py`、`AGENT.md`、`CLAUDE.md`、`src/jtc_gov/{domain,derive,checks}/**`、`adapters/{github_action,claude_hook}/**`)と、`approval.json` を、それぞれ変更する PR | すべて出力に「人間のマージが必要」と表示される。`approval.json` には D もかかる。Q と T が通れば、それ以外の CI は通る | §4.3、§4.4 | できない |
+| L1-E44 | 表駆動: §4.4 の全パス(`.github/**`、`scripts/**`、`pyproject.toml`、`uv.lock`、`.pre-commit-config.yaml`、`.claude/settings.json`、`.claude/hooks/**`、`.gitattributes`、`conftest.py`、`AGENT.md`、`CLAUDE.md`、`src/jtc_gov/**`(`adapters/cli.py` を含む))と、`approval.json` を、それぞれ変更する PR | すべて出力に「人間のマージが必要」と表示される。`approval.json` には D もかかる。Q と T が通れば、それ以外の CI は通る | §4.3、§4.4 | できない |
+| L1-E46 | `main` に有効な承認がなく、新しいテスト関数(marker あり、スキップされる)だけを足す PR(`src/` は変えない) | 失敗(K.a)。承認があり marker がその要件なら成功 | K | できない |
+| L1-E47 | `open` の要件を `closed` にする決定 PR が、同じ PR で仕様からテストのないタグの行を消す / 承認済みの設計ファイルを書き換える | どちらも失敗 | D(c) | できない |
+| L1-E48 | `main` が先に進んだ(実装 PR と `closed` への決定が入った)後、古い分岐から README だけを変えた PR を `gov check --base <新しい main>` で検査 | 成功(K は適用されない。`main` 側の変更を、この分岐の変更として数えない) | §3.1 | できない |
 | L1-E45 | 空のリポジトリから、要件の追加、設計 PR(01〜04)、決定 PR(`open`)、実装 PR(複数)、`closed` までを順に実行 | 各段階で期待どおり成功/失敗する | §7 | できない(現行の E2E は保存した状態を進める方式) |
 
 ## 3. 統合テスト
@@ -139,6 +142,9 @@
 | 現在ゲートの表示(§5.2) | E43 |
 | 検証機構(§4.4)、規約 C1〜C3(出力の明示のみ) | E44、C03 |
 | フロー(§7) | E45 |
+| K(テストだけの PR、分割による迂回) | E46 |
+| D(c)(完了の遷移で仕様を変えない) | E47 |
+| `changes` の基準(merge-base) | E48 |
 | I1 | I01 |
 | I2 | S01 |
 | §3 依存の向き | S02 |
