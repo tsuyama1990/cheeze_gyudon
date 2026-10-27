@@ -15,7 +15,7 @@ MVP で作らないと決めたものの一覧。ここが正本。理由と再�
 | B-09 | 企業規模の運用展開、テレメトリ、署名による証明 | MVP の範囲外 | 利用者が増えたとき | decisions.md D13 |
 | B-10 | `read` を `git cat-file --batch` にまとめる最適化 | 速度の要件がない | 実測で問題になったとき | 04_detail_design.md Q-L3-1、DEC-014 |
 | B-11 | サブモジュール(gitlink)の扱い | MVP では対象外(`read` は `RepoError`) | サブモジュールを使うとき | 04_detail_design.md §5.1 |
-| B-12 | 作業: `jtc-spike` リポジトリの削除 | 削除はオーナーが GitHub の画面で行う | いつでも | spirals.md |
+| B-12 | 作業: `jtc-spike` リポジトリの削除 | 削除はオーナーが GitHub の画面で行う | いつでも | (オーナーの作業。他に記録なし) |
 
 ## 訂正履歴
 
