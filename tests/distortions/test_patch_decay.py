@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.requirement("REQ-2026-004-F02")
+@pytest.mark.requirement("REQ-2026-010-F04")
 def test_patch_decay_complexity_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Simulates agent introducing high-complexity spaghetti (McCabe > 10) -> Rejected by Ruff."""
     monkeypatch.chdir(tmp_path)
