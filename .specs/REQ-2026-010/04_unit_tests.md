@@ -76,9 +76,9 @@
 | L3-U46 | `render_settings` / `render_gitattributes` | 出力 | `settings` は入れ子形式で `gov hook` を呼ぶ。`.gitattributes` は `.specs/** text eol=lf` を含む | F05 | できない |
 | L3-U47 | `FakeRepo`、`GitRepo.changes` のフィールド(added は old=None、modified は同じパス、deleted は new=None) | `list` の昇順、`changes` の追加・変更・削除・指定した改名、`read` の None。モードだけの変更は表現しない | 契約(03 §2)のとおり。実 git との一致は適合テスト(L2-I09) | F01 | できない |
 | L3-U48 | `run_check` | `open_repo` が `RepoError` を投げる / 想定外の例外を投げる / 違反あり / 通過、`--json` の有無 | 順に 終了コード 2 と `E.repo` の行、2 と `E.internal`(traceback なし)、1、0。JSON も同じ内容 | F01 | できない |
-| L3-U49 | `added_test_functions` | 新規ファイル、既存ファイルに関数を足す、既存関数の変更だけ、削除だけ、改名だけ、解析失敗 | 順に 真、真、偽、偽、偽、偽 | F01 | できない |
-| L3-U50 | `check_d`(完了の遷移) | `base` に `open` の承認があり `closed` にする: 仕様のタグを消す、設計ファイルを書き換える、変更なし。`base` に承認がない | 前 2 つは `D.c`。後 2 つは `head`(または `base`)の仕様のタグにテストがあれば `Finding` なし | F02 | できない |
-| L3-U51 | `check_k`(テストだけの PR) | 新しい関数を足す PR: 承認 0 / 1 個、marker が承認の要件 / 外 | 0 個は `K.a`、要件外は `K.c`、それ以外は空 | F01 | できない |
+| L3-U49 | `changed_test_functions` | 新規ファイル、既存ファイルに関数を足す、既存関数の本体の書き換え、marker の付け替え、削除だけ、ファイルの改名だけ、関数の改名、解析失敗 | 順に 真、真、真、真、偽、偽、真、偽 | F01 | できない |
+| L3-U50 | `check_d`(完了の遷移) | `base` に有効な `open` があり `closed` にする: 仕様のタグを消す、設計ファイルを書き換える、変更なし。`base` の承認が失効している。`base` が `withdrawn`。`base` に承認がない / 既に `closed` | 前 4 つ(変更なしを除く 2 つと失効・取り下げ)は `D.c`、残りは仕様のタグにテストがあれば `Finding` なし | F02 | できない |
+| L3-U51 | `check_k`(テストだけの PR) | 関数を足す、本体を書き換える、関数の改名: 承認 0 / 1 個、marker が承認の要件 / 外 | 0 個は `K.a`、要件外は `K.c`、それ以外は空 | F01 | できない |
 | L3-U52 | `short_status` / `format_status` の「`src/` の変更が可能か」 | `base` は `closed`、`head` は `open` | 「不可」(K と一致) | F06 | できない |
 
 ## 6. 追跡表(設計 → テスト)
