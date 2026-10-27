@@ -68,8 +68,8 @@
 |---|---|---|
 | 0 | 現状の棚卸し([background/as_is_inventory.md](background/as_is_inventory.md))、案([background/proposal_l1_flow.md](background/proposal_l1_flow.md))、spike(フックの配線、CI の改ざん、保護ルール) | 完了 |
 | 1 | L1(全体設計)とそのテスト仕様。8 回の改訂と 5 回のレビュー(Opus、DeepSeek)。第4版でパッチの連鎖に陥り、第5版で作り直した | **完了。ベースライン(DEC-026)**。正式な承認は、L1 に変更が入りうるスパイラル 2 の終わり |
-| 2 | L2(詳細設計)と、結合テスト仕様 | **設計書は完了**(DeepSeek のレビュー 2 回、致命 0。[reviews/](reviews/))。L1・L2 の正式な承認は、スパイラル 2 の終わりに記録する(小さな問い Q-L2-4〜8 は決定済み: DEC-031〜035) |
-| 3 | L3(クラス設計)と、単体テスト仕様(`04_detail_design.md`、`04_unit_tests.md`) | 着手(§7) |
+| 2 | L2(詳細設計)と、結合テスト仕様 | **設計書は完了**(DeepSeek のレビュー 2 回、致命 0。[reviews/](reviews/))。承認済み(DEC-036)。小さな問い Q-L2-4〜8 は DEC-031〜035 |
+| 3 | L3(クラス設計)と、単体テスト仕様(`04_detail_design.md`、`04_unit_tests.md`) | **設計書は完了**(DeepSeek のレビュー 2 回、致命 0)。承認済み(DEC-036) |
 
 ## 5. スパイラル 2(L2)の計画
 
