@@ -153,6 +153,7 @@ addopts = [
 ]
 markers = [
     "requirement: link test to specific specification requirement ID (e.g. @pytest.mark.requirement('REQ-xxx'))",
+    "spec: link test to the test-specification rows it implements (e.g. @pytest.mark.spec('L3-U01'))",
 ]
 
 [tool.coverage.run]

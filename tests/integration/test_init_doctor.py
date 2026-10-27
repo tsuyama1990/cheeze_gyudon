@@ -19,6 +19,7 @@ HYGIENE_ONLY = """repos:
 """
 
 
+@pytest.mark.spec("L3-U46")
 @pytest.mark.requirement("REQ-2026-010-F05")
 def test_rendered_files() -> None:
     hooks = json.loads(render_settings())["hooks"]
@@ -207,3 +208,40 @@ def test_init_outside_a_repo_reports_instead_of_crashing(
     result = CliRunner().invoke(main, ["init"])
     assert result.exit_code == 1
     assert "E.repo" in result.output
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+@pytest.mark.spec("L2-I43")
+@pytest.mark.parametrize("tool", ["mypy", "vulture", "pytest", "scripts/gate.sh", "gov check"])
+def test_doctor_rejects_each_duplicated_tool_in_pre_commit(healthy: Path, tool: str) -> None:
+    (healthy / ".pre-commit-config.yaml").write_text(
+        HYGIENE_ONLY + f"      - id: x\n        entry: {tool}\n"
+    )
+    found = failures(CliRunner().invoke(main, ["doctor"]).output)
+    assert len(found) == 1
+    assert tool.rsplit("/", maxsplit=1)[-1] in found[0]
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+@pytest.mark.spec("L2-I30")
+@pytest.mark.parametrize(
+    ("remove", "named"),
+    [
+        ("scripts/gate.sh", "scripts/gate.sh"),
+        (".claude/settings.json", "settings.json"),
+    ],
+)
+def test_doctor_reports_exactly_the_missing_file(healthy: Path, remove: str, named: str) -> None:
+    (healthy / remove).unlink()
+    found = failures(CliRunner().invoke(main, ["doctor"]).output)
+    assert len(found) >= 1
+    assert any(named in line for line in found)
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+@pytest.mark.spec("L2-I30")
+def test_doctor_reports_a_missing_origin_main(healthy: Path) -> None:
+    git(healthy, "update-ref", "-d", "refs/remotes/origin/main")
+    found = failures(CliRunner().invoke(main, ["doctor"]).output)
+    assert len(found) == 1
+    assert "origin/main" in found[0]

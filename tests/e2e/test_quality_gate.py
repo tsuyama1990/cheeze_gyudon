@@ -23,11 +23,19 @@ fail_under = {THRESHOLD}
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.mypy]
 strict = true
 """
 COVERED = "def covered(x: int) -> int:\n    if x:\n        return 1\n    return 2\n"
 UNCOVERED = "def uncovered(x: int) -> int:\n    if x:\n        return 1\n    return 2\n"
+SPAGHETTI = (
+    "def spaghetti(x: int) -> int:\n"
+    + "".join(f"    if x == {i}:\n        return {i}\n" for i in range(12))
+    + "    return 0\n"
+)
 TEST = (
     "from pkg.a import covered\n\n\ndef test_covered() -> None:\n"
     "    assert covered(1) == 1\n    assert covered(0) == 2\n"
@@ -116,6 +124,11 @@ def test_moving_an_uncovered_function_fails(root: Path) -> None:  # noqa: F811
     ("tool", "args", "files"),
     [
         ("ruff", ["check", "src"], {"src/pkg/a.py": b"import os\n"}),
+        (
+            "ruff",
+            ["check", "--select", "C90", "src"],
+            {"src/pkg/a.py": SPAGHETTI.encode()},
+        ),
         ("mypy", ["src"], {"src/pkg/a.py": b"def f() -> int:\n    return 'x'\n"}),
         (
             "vulture",
@@ -125,7 +138,7 @@ def test_moving_an_uncovered_function_fails(root: Path) -> None:  # noqa: F811
         ("pytest", ["-q"], {"tests/test_a.py": b"def test_a() -> None:\n    assert 0\n"}),
         ("pytest", ["-q"], {"tests/test_a.py": b"def test_a() -> None:\n    assert 1\n"}),
     ],
-    ids=["lint", "types", "dead-code", "test-failure", "coverage-below-threshold"],
+    ids=["lint", "complexity", "types", "dead-code", "test-failure", "coverage-below-threshold"],
 )
 def test_quality_tools_reject(
     root: Path,  # noqa: F811

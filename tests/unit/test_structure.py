@@ -84,3 +84,45 @@ def test_nothing_writes_state_json() -> None:
     """L1-S04"""
     offenders = [p.name for p in SRC.rglob("*.py") if "state.json" in p.read_text(encoding="utf-8")]
     assert offenders == []
+
+
+def _module_name(path: Path) -> str:
+    return ".".join(path.relative_to(SRC.parent).with_suffix("").parts)
+
+
+@pytest.mark.requirement("REQ-2026-010-F08")
+@pytest.mark.spec("L1-S02")
+def test_module_imports_have_no_cycles() -> None:
+    graph = {
+        _module_name(p): {n for n in imported(p) if n.startswith("jtc_gov.")}
+        for p in SRC.rglob("*.py")
+    }
+    visiting: set[str] = set()
+    done: set[str] = set()
+
+    def visit(node: str) -> None:
+        assert node not in visiting, f"import cycle through {node}"
+        if node in done or node not in graph:
+            return
+        visiting.add(node)
+        for target in graph[node]:
+            visit(target)
+        visiting.discard(node)
+        done.add(node)
+
+    for name in graph:
+        visit(name)
+
+
+@pytest.mark.requirement("REQ-2026-010-F08")
+@pytest.mark.spec("L1-S03")
+def test_every_designed_module_exists() -> None:
+    headings = set(
+        re.findall(
+            r"^### [\d.a-z]+ `([a-z_/]+\.py)`",
+            DETAIL_DESIGN.read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
+    )
+    missing = sorted(h for h in headings if not (SRC / h).is_file())
+    assert missing == []

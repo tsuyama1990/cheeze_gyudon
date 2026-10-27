@@ -65,6 +65,7 @@ def _pair(root: Path) -> tuple[GitRepo, FakeRepo]:
     return GitRepo(root, base, head), FakeRepo(BASE, HEAD, RENAMES)
 
 
+@pytest.mark.spec("L2-I01", "L2-I04", "L2-I09", "L3-U47")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_conformance_with_fake_repo(root: Path) -> None:
     real, fake = _pair(root)
@@ -75,6 +76,7 @@ def test_conformance_with_fake_repo(root: Path) -> None:
     assert sorted(map(str, real.changes()), key=str) == sorted(map(str, fake.changes()), key=str)
 
 
+@pytest.mark.spec("L2-I02", "L2-I06")
 @pytest.mark.requirement("REQ-2026-010-F06")
 def test_list_is_full_path_ascending(root: Path) -> None:
     files = {"a/x": b"1", "a-b": b"2", "a.c": b"3", "日本語 名.txt": b"4"}
@@ -84,6 +86,7 @@ def test_list_is_full_path_ascending(root: Path) -> None:
     assert repo.read("日本語 名.txt", "head") == b"4"
 
 
+@pytest.mark.spec("L2-I03")
 @pytest.mark.requirement("REQ-2026-010-F05")
 def test_worktree_list_and_changes(root: Path) -> None:
     base = commit(
@@ -118,6 +121,7 @@ def test_worktree_rename_before_add_is_delete_plus_add(root: Path) -> None:
     assert staged == [Change("src.txt", "dst.txt", "renamed")]
 
 
+@pytest.mark.spec("L2-I04")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_rename_with_edit_and_mode_only_change(root: Path) -> None:
     base = commit(root, {"r.txt": b"line\n" * 20, "x.sh": b"echo\n"})
@@ -135,6 +139,7 @@ def commit_staged(root: Path) -> str:
     return git(root, "rev-parse", "HEAD")
 
 
+@pytest.mark.spec("L2-I05")
 @pytest.mark.requirement("REQ-2026-010-F06")
 def test_symlink_content_is_target_path(root: Path) -> None:
     (root / "real.txt").write_bytes(b"r")
@@ -146,6 +151,7 @@ def test_symlink_content_is_target_path(root: Path) -> None:
     assert GitRepo(root, head, "worktree").read("link", "head") == b"real.txt"
 
 
+@pytest.mark.spec("L2-I07")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_errors_are_repo_errors(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     head = commit(root, {"a": b"1"})

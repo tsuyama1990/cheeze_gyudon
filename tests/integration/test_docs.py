@@ -55,3 +55,40 @@ def test_gitattributes_normalises_specs_to_lf(root: Path) -> None:  # noqa: F811
     clone = root.parent / "clone"
     subprocess.run(["git", "clone", "-q", str(root), str(clone)], check=True)  # noqa: S603, S607
     assert (clone / ".specs" / "R" / "01_req_spec.md").read_bytes() == b"line one\nline two\n"
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+@pytest.mark.spec("L1-C04")
+def test_gate_script_is_executable_in_git() -> None:
+    entry = subprocess.run(
+        ["git", "ls-files", "-s", "scripts/gate.sh"],  # noqa: S607
+        cwd=PROJECT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert entry.startswith("100755")
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+@pytest.mark.spec("L1-C05")
+@pytest.mark.parametrize("doc", [PROJECT / "README.md", PROJECT / "AGENT.md"], ids=lambda p: p.name)
+def test_documents_name_no_other_quality_entry_point(doc: Path) -> None:
+    text = doc.read_text(encoding="utf-8")
+    assert "scripts/gate.sh" in text or doc.name == "AGENT.md"
+    for alias in ("verify_all", "ci-verify", "gate-check"):
+        assert alias not in text
+
+
+@pytest.mark.requirement("REQ-2026-010-F08")
+@pytest.mark.spec("L1-C07")
+def test_source_comments_do_not_copy_the_coverage_threshold() -> None:
+    config = tomllib.loads((PROJECT / "pyproject.toml").read_text(encoding="utf-8"))
+    threshold = config["tool"]["coverage"]["report"]["fail_under"]
+    pattern = re.compile(rf"#.*\b{threshold}\s*%")
+    offenders = [
+        p.name
+        for p in (PROJECT / "src").rglob("*.py")
+        if pattern.search(p.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []

@@ -52,6 +52,7 @@ def write(path: str, key: str = "file_path") -> dict[str, object]:
     return {"tool_name": "Write", "tool_input": {key: path}}
 
 
+@pytest.mark.spec("L2-I32", "L3-U37")
 @pytest.mark.requirement("REQ-2026-010-F05")
 @pytest.mark.parametrize(
     ("command", "expected"),
@@ -81,6 +82,7 @@ def test_classify_git(command: str, expected: str | None) -> None:
     assert classify_git(command) == expected
 
 
+@pytest.mark.spec("L3-U42", "L2-I31")
 @pytest.mark.requirement("REQ-2026-010-F05")
 @pytest.mark.parametrize(
     ("files", "payload", "notice"),
@@ -111,6 +113,7 @@ def test_write_notice_never_blocks(
         assert "先に承認が必要" in outcome.stdout
 
 
+@pytest.mark.spec("L3-U39", "L3-U40", "L2-I33")
 @pytest.mark.requirement("REQ-2026-010-F05")
 @pytest.mark.parametrize(("command", "head"), [("git commit -m x", "w"), ("git push", "h")])
 def test_commit_and_push_reject_violations(root: Path, command: str, head: str) -> None:
@@ -132,6 +135,7 @@ def test_t_and_pragma_findings_only_warn(root: Path) -> None:
     assert "警告" in outcome.stderr
 
 
+@pytest.mark.spec("L2-I35", "L2-I36", "L3-U41")
 @pytest.mark.requirement("REQ-2026-010-F05")
 @pytest.mark.parametrize("exc", [RepoError("no base"), RuntimeError("boom")])
 def test_infrastructure_errors_fail_open(root: Path, exc: Exception) -> None:
@@ -144,6 +148,7 @@ def test_infrastructure_errors_fail_open(root: Path, exc: Exception) -> None:
     assert handle("session-start", {}, root, broken(exc)) == HookOutcome(0)
 
 
+@pytest.mark.spec("L2-I49", "L3-U42")
 @pytest.mark.requirement("REQ-2026-010-F05")
 def test_without_specs_dir(tmp_path: Path) -> None:
     for event, payload in (("session-start", {}), ("pre-tool-use", write("src/a.py"))):
@@ -158,6 +163,7 @@ def test_without_specs_dir(tmp_path: Path) -> None:
     assert docs == HookOutcome(0)
 
 
+@pytest.mark.spec("L3-U45", "L2-I38")
 @pytest.mark.requirement("REQ-2026-010-F05")
 @pytest.mark.parametrize("event", ["session-start", "user-prompt-submit"])
 def test_status_notice(root: Path, event: str) -> None:
@@ -174,6 +180,7 @@ def test_unknown_event_does_nothing(root: Path) -> None:
     ) == HookOutcome(0)
 
 
+@pytest.mark.spec("L1-I01")
 @pytest.mark.requirement("REQ-2026-010-F05")
 def test_hook_and_ci_entry_agree_on_k() -> None:
     """L1-I01: the same repo state gives the same K verdict at both entries."""
@@ -184,3 +191,37 @@ def test_hook_and_ci_entry_agree_on_k() -> None:
         # /nonexistent has no .specs but a git command is always checked
         assert (code == 1) == (hook.exit_code == 2)
         assert ("K.a" in output) == ("K.a" in hook.stderr)
+
+
+@pytest.mark.requirement("REQ-2026-010-F05")
+@pytest.mark.spec("L3-U38", "L2-I31")
+def test_write_notice_for_an_absolute_path_inside_the_repo(root: Path) -> None:
+    inside = str(root / "src" / "a.py")
+    outcome = handle("pre-tool-use", write(inside), root, factory(README, README))
+    assert "先に承認が必要" in outcome.stdout
+    approved = handle("pre-tool-use", write(inside), root, factory(APPROVED, APPROVED))
+    assert approved == HookOutcome(0)
+
+
+@pytest.mark.requirement("REQ-2026-010-F05")
+@pytest.mark.spec("L2-I38", "L1-E42")
+def test_status_notice_shows_the_current_gate_and_invalid_approvals(root: Path) -> None:
+    ready = handle("session-start", {}, root, factory(APPROVED, APPROVED))
+    assert "現在ゲート 5" in ready.stdout
+    stale = {**APPROVED, f".specs/{REQ}/02_system_design.md": b"changed"}
+    outcome = handle("user-prompt-submit", {}, root, factory(stale, stale))
+    assert f"失効または読めない承認: {REQ}" in outcome.stdout
+    assert len(outcome.stdout.splitlines()) <= 3
+
+
+@pytest.mark.requirement("REQ-2026-010-F06")
+@pytest.mark.spec("L2-I55")
+def test_hook_notice_and_gov_check_agree_when_base_is_closed_and_head_reopened(root: Path) -> None:
+    closed = with_approval(REQ, "closed")
+    reopened = {**README, **with_approval(REQ)}
+    notice = handle("pre-tool-use", write("src/a.py"), root, factory(closed, reopened))
+    assert "先に承認が必要" in notice.stdout
+    fake = FakeRepo(closed, {**reopened, **CHANGED})
+    code, output = run_check(partial(identity, fake), as_json=False)
+    assert code == 1
+    assert "K.a" in output

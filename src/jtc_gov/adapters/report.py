@@ -64,7 +64,11 @@ def format_status(repo: Repo, head_label: str) -> str:
 
 def short_status(repo: Repo) -> str:
     approvals = load_approvals(repo, "head")
-    lines = [f"jtc-gov: 要件 {len(approvals)} 件、有効な open {len(valid_open(repo, 'head'))} 件"]
+    opens = valid_open(repo, "head")
+    summary = f"jtc-gov: 要件 {len(approvals)} 件、有効な open {len(opens)} 件"
+    if len(opens) == 1:
+        summary += f"、現在ゲート {display_gate(repo, 'head', opens[0].requirement)}"
+    lines = [summary]
     broken = [
         req
         for req, a in sorted(approvals.items())
