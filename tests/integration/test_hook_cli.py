@@ -49,6 +49,7 @@ def bash(command: str) -> dict[str, object]:
     return {"tool_name": "Bash", "tool_input": {"command": command}}
 
 
+@pytest.mark.spec("L2-I34", "L1-E39", "L1-E40")
 @pytest.mark.requirement("REQ-2026-010-F05")
 def test_commit_is_judged_on_the_worktree_push_on_head(repo: Path) -> None:
     """L1-E38, L1-E39, L1-E40"""
@@ -100,6 +101,7 @@ def test_missing_origin_main_is_fetched_once(repo: Path) -> None:
     assert git(repo, "rev-parse", "--verify", "origin/main")
 
 
+@pytest.mark.spec("L2-I35")
 @pytest.mark.requirement("REQ-2026-010-F05")
 def test_unreachable_base_fails_open_with_a_warning(tmp_path: Path) -> None:
     git(tmp_path, "init", "-q", "-b", "main")
@@ -137,3 +139,18 @@ def test_installed_entry_point_rejects_with_exit_2(repo: Path) -> None:
     )
     assert done.returncode == 2
     assert "K.a" in done.stderr
+
+
+@pytest.mark.requirement("REQ-2026-010-F05")
+@pytest.mark.spec("L1-E38", "L2-I33")
+def test_staged_changes_are_rejected_like_unstaged_ones(repo: Path) -> None:
+    publish(repo, README)
+    for path, data in CHANGED.items():
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo / path).write_bytes(data)
+    git(repo, "add", "src", "tests")
+    code, _, err = hook(repo, "pre-tool-use", bash("git commit -m x"))
+    assert code == 2
+    assert "K.a" in err
+    git(repo, "reset", "-q")
+    assert hook(repo, "pre-tool-use", bash("git commit -m x"))[0] == 2

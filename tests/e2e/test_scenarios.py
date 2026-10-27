@@ -117,13 +117,14 @@ def rule_cases() -> list[object]:
             "K.c",
         ),
         ("L1-E10", set_changed, {**set_changed, **SRC, **TEST}, 1, "K.a"),
-        ("L1-E30", {**APPROVED, **SRC}, {**APPROVED, **SRC_EDIT}, 0, ""),
+        ("L1-E30", {**README, **SRC}, {**README, **SRC_EDIT}, 0, ""),
         ("L1-E34", {**README, **SRC}, {**README, **SRC_EDIT, **TEST}, 1, "K.a"),
         ("L1-E36", README, {**README, "pyproject.toml": b"[x]\n"}, 0, HUMAN),
     ]
     return [pytest.param(Scenario(b, h, code, text), id=name) for name, b, h, code, text in cases]
 
 
+@pytest.mark.spec("L1-E35")
 @pytest.mark.requirement("REQ-2026-010-F01")
 @pytest.mark.parametrize("scenario", rule_cases())
 def test_k_scenarios(
@@ -176,7 +177,7 @@ def d_cases() -> list[object]:
     without_approval = {k: v for k, v in APPROVED.items() if k != APPROVAL_PATH}
     cases = [
         ("L1-E06", APPROVED, second_open, 1, "D.d"),
-        ("L1-E11", README, {**README, **missing}, 1, "D.a"),
+        ("L1-E11", README, {**README, **missing}, 1, "04_unit_tests.md"),
         ("L1-E12", README, {**README, **tampered}, 1, "D.b"),
         ("L1-E13", README, {**README, **with_approval(REQ)}, 0, HUMAN),
         (
@@ -204,6 +205,13 @@ def d_cases() -> list[object]:
         ),
         ("L1-E16", README, {**README, **legacy}, 0, ""),
         ("L1-E17", APPROVED, {**README, **withdrawn}, 0, ""),
+        (
+            "L1-E17-then-open-another",
+            {**README, **withdrawn},
+            {**README, **withdrawn, **with_approval(OTHER, spec=SPEC_OTHER)},
+            0,
+            "",
+        ),
         ("L1-E18", APPROVED, without_approval, 1, "D.delete"),
         ("L1-E47-tag-removed", spec2_open, tag_removed, 1, "D.c"),
         ("L1-E47-stale-approval", stale_open, stale_closed, 1, "D.c"),
@@ -264,6 +272,7 @@ def test_t_and_q_scenarios(
     run(root, scenario, monkeypatch)
 
 
+@pytest.mark.spec("L1-E44")
 @pytest.mark.requirement("REQ-2026-010-F07")
 @pytest.mark.parametrize("path", MACHINERY_PATHS)
 def test_machinery_paths_need_a_human(
@@ -288,6 +297,7 @@ def test_json_output_lists_the_human_merge(
     assert payload["human_merge"] == ["決定(approval.json)"]
 
 
+@pytest.mark.spec("L1-E43")
 @pytest.mark.requirement("REQ-2026-010-F06")
 @pytest.mark.parametrize("pairs", [0, 1, 2, 3, 4])
 def test_displayed_gate_is_the_first_incomplete_pair(
@@ -306,6 +316,7 @@ def test_displayed_gate_is_the_first_incomplete_pair(
     assert f"ゲート {pairs + 1}" in result.output
 
 
+@pytest.mark.spec("L1-E43")
 @pytest.mark.requirement("REQ-2026-010-F06")
 def test_gate_skips_to_the_smallest_missing_pair(
     root: Path,  # noqa: F811
@@ -330,6 +341,7 @@ def test_full_lifecycle(
     monkeypatch.chdir(root)
     design = design_files(REQ, SPEC2)
     steps: list[tuple[str, dict[str, bytes], int, str]] = [
+        ("requirement", {**README, SPEC_PATH: SPEC2.encode()}, 0, ""),
         ("design", {**README, **design}, 0, ""),
         ("decision", {**README, **with_approval(REQ, spec=SPEC2)}, 0, HUMAN),
         ("impl-1", {**README, **with_approval(REQ, spec=SPEC2), **SRC, **TEST}, 0, ""),
@@ -358,16 +370,16 @@ def test_full_lifecycle(
             "K.b",
         ),
     ]
-    main_sha = ""
+    main_sha = commit(root, README, "init")
     for name, snapshot, code, text in steps:
         head = commit(root, snapshot, name)
-        args = ["check", "--head", head] + (["--base", main_sha] if main_sha else ["--base", head])
+        args = ["check", "--head", head, "--base", main_sha]
         result = CliRunner().invoke(main, args)
         assert result.exit_code == code, (name, result.output)
         assert text in result.output, (name, result.output)
         if code == 0:
             main_sha = head
-    implemented = steps[3][1]
+    implemented = steps[4][1]
     closed = {**implemented, **with_approval(REQ, "closed", SPEC2)}
     head = commit(root, closed, "close")
     result = CliRunner().invoke(main, ["check", "--base", main_sha, "--head", head])

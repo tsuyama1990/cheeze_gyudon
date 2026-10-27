@@ -51,6 +51,7 @@ def test_parse_approval_ok() -> None:
     assert isinstance(parse_approval(_ok(), REQ), Approval)
 
 
+@pytest.mark.spec("L3-U10")
 @pytest.mark.requirement("REQ-2026-010-F02")
 def test_load_approvals_reads_exact_paths_only() -> None:
     files = {
@@ -71,12 +72,14 @@ def _approval(repo: FakeRepo) -> Approval:
     return a
 
 
+@pytest.mark.spec("L2-I11", "L3-U11")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_validity_all_match() -> None:
     repo = FakeRepo({}, with_approval(REQ))
     assert validity(repo, "head", _approval(repo)) == []
 
 
+@pytest.mark.spec("L2-I11", "L3-U11")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_validity_reports_each_problem() -> None:
     files = with_approval(REQ, "closed")
@@ -94,6 +97,7 @@ def test_validity_reports_each_problem() -> None:
     }
 
 
+@pytest.mark.spec("L2-I12", "L3-U12")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_valid_open_filters() -> None:
     other = with_approval("REQ-2026-011", "closed")
@@ -212,6 +216,7 @@ def test_test_functions_single_pytestmark() -> None:
     assert not _funcs("def test_a(): pass")[0].dynamic
 
 
+@pytest.mark.spec("L3-U16")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_test_functions_source_range() -> None:
     base = '@pytest.mark.parametrize(\n    "x",\n    [1],\n)\ndef test_a(x):\n    assert x == 1\n'
@@ -221,6 +226,7 @@ def test_test_functions_source_range() -> None:
     assert _funcs(base.replace('"x"', '"y"'))[0].source_sha != sha
 
 
+@pytest.mark.spec("L3-U17")
 @pytest.mark.requirement("REQ-2026-010-F03")
 def test_test_functions_failures() -> None:
     assert isinstance(extract(b"def ("), ParseFailure)
@@ -239,6 +245,7 @@ def _rel(
     return related_requirements(repo, repo.changes())
 
 
+@pytest.mark.spec("L2-I15", "L3-U18")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_related_requirements_specs_and_functions() -> None:
     p = "tests/test_x.py"
@@ -250,6 +257,7 @@ def test_related_requirements_specs_and_functions() -> None:
     assert _rel({p: _test_src(T)}, {p: _test_src(T, "assert 1")}) == {REQ}
 
 
+@pytest.mark.spec("L2-I15", "L3-U18")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_related_requirements_class_and_module_marks() -> None:
     p = "tests/test_x.py"
@@ -266,6 +274,7 @@ def test_related_requirements_class_and_module_marks() -> None:
     assert _rel({p: mod(T)}, {p: mod("REQ-2026-001-F01")}) == {REQ, "REQ-2026-001"}
 
 
+@pytest.mark.spec("L2-I15", "L3-U18")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_related_requirements_mixed_file_and_rename_and_errors() -> None:
     p = "tests/test_x.py"
@@ -283,6 +292,7 @@ def test_related_requirements_mixed_file_and_rename_and_errors() -> None:
     assert _rel({}, {p: bad_tag}) == set()
 
 
+@pytest.mark.spec("L2-I16", "L3-U19")
 @pytest.mark.requirement("REQ-2026-010-F06")
 def test_display_gate() -> None:
     def gate(files: dict[str, bytes]) -> int:
@@ -338,3 +348,76 @@ def test_changed_test_functions() -> None:
     assert changed({p: _test_src(T)}, {p: _test_src(T).replace(b"test_a", b"test_renamed")})
     assert not changed({}, {p: b"def (:"})
     assert not changed({}, {"src/a.py": b"x = 1\n"})
+
+
+@pytest.mark.requirement("REQ-2026-010-F02")
+@pytest.mark.spec("L3-U09", "L2-I10", "L2-I47")
+@pytest.mark.parametrize(
+    ("raw", "reason"),
+    [
+        (b'{"requirement": "REQ-2026-010", "state": "open", "files": {}, "extra": 1}', "extra"),
+        (_ok().replace(b"open", b"done"), "state"),
+        (
+            b'{"requirement": "REQ-2026-010", "state": "open", "files": {"01_req_spec.md": "'
+            + b"A" * 64
+            + b'"}}',
+            "files",
+        ),
+        (
+            b'{"requirement": "REQ-2026-010", "state": "open", "files": {"01_req_spec.md": "'
+            + b"a" * 63
+            + b'"}}',
+            "files",
+        ),
+        (
+            b'{"requirement": "REQ-2026-010", "state": "open", "files": {"sub/01_req_spec.md": "'
+            + b"a" * 64
+            + b'"}}',
+            "files",
+        ),
+        (b'{"requirement": "REQ-2026-010", "state": "open", "files": []}', "files"),
+        (
+            b'{"requirement": "REQ-2026-010", "state": "open", "files": {"01_req_spec.md": 1}}',
+            "files",
+        ),
+        (b'{"requirement": 1, "state": "open", "files": {}}', "requirement"),
+    ],
+)
+def test_parse_approval_failures_carry_a_reason(raw: bytes, reason: str) -> None:
+    failure = parse_approval(raw, REQ)
+    assert isinstance(failure, ParseFailure)
+    assert reason in failure.reason
+
+
+@pytest.mark.requirement("REQ-2026-010-F03")
+@pytest.mark.spec("L3-U13", "L2-I13")
+def test_spec_tags_ignore_lowercase_tags() -> None:
+    text = "- **[req-2026-010-f01] lower**\n- **[REQ-2026-010-F02] ok**\n"
+    assert spec_tags(_spec(text), "head", REQ) == {"REQ-2026-010-F02"}
+
+
+@pytest.mark.requirement("REQ-2026-010-F03")
+@pytest.mark.spec("L3-U14", "L3-U15", "L2-I14")
+def test_test_functions_with_blocks_and_tuple_pytestmark() -> None:
+    src = """
+import pytest
+pytestmark = (pytest.mark.requirement("REQ-2026-010-F09"), pytest.mark.requirement("X"))
+with open("f") as handle:
+    def test_in_with(): pass
+for _ in range(1):
+    def test_in_for(): pass
+"""
+    by = {f.qualname: f for f in _funcs(src)}
+    assert set(by) == {"test_in_with", "test_in_for"}
+    assert by["test_in_with"].tags == ("REQ-2026-010-F09", "X")
+    third_form = '@requirement("T")\ndef test_a(): pass\n'
+    assert _funcs(third_form)[0].tags == ("T",)
+
+
+@pytest.mark.requirement("REQ-2026-010-F01")
+@pytest.mark.spec("L3-U08", "L2-I45")
+def test_sha256_known_digests_for_lf_and_crlf() -> None:
+    assert sha256_hex(b"a\n") == "87428fc522803d31065e7bce3cf03fe475096631e5e07bbd7a0fde60c4cf25c7"
+    assert (
+        sha256_hex(b"a\r\n") == "8e4621379786ef42a4fec155cd525c291dd7db3c1fde3478522f4f61c03fd1bd"
+    )

@@ -38,6 +38,7 @@ def test_k_applies_only_with_src_and_aux() -> None:
     assert _rules(_k({}, {"src/a.py": b"x", ".specs/x/y.md": b"x"})) == ["K.a"]
 
 
+@pytest.mark.spec("L3-U21")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_k_a_counts_valid_opens() -> None:
     base = with_approval(REQ)
@@ -47,6 +48,7 @@ def test_k_a_counts_valid_opens() -> None:
     assert _rules(_k(two, {**two, "src/a.py": b"x", TEST: _t(TAG)})) == ["K.a"]
 
 
+@pytest.mark.spec("L2-I18", "L3-U22")
 @pytest.mark.requirement("REQ-2026-010-F01")
 @pytest.mark.parametrize(
     ("edit", "hit"),
@@ -65,6 +67,7 @@ def test_k_b(edit: str, *, hit: bool) -> None:
     assert ("K.b" in _rules(_k(base, head))) is hit
 
 
+@pytest.mark.spec("L2-I18", "L3-U22")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_k_b_rename() -> None:
     base = {**with_approval(REQ), "src/a.py": b"x"}
@@ -75,6 +78,7 @@ def test_k_b_rename() -> None:
     assert "K.b" in _rules(check_k(repo2, repo2.changes()))
 
 
+@pytest.mark.spec("L2-I19", "L3-U23")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_k_c() -> None:
     base = with_approval(REQ)
@@ -86,6 +90,7 @@ def test_k_c() -> None:
     assert _k(base, {**base, **src, TEST: _t(TAG)}) == []
 
 
+@pytest.mark.spec("L3-U24")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_k_rename_from_src_counts_as_src() -> None:
     base = {**with_approval(REQ), "src/a.py": b"x"}
@@ -106,6 +111,7 @@ def _d(
 APPROVAL = f".specs/{REQ}/approval.json"
 
 
+@pytest.mark.spec("L3-U25", "L2-I20")
 @pytest.mark.requirement("REQ-2026-010-F02")
 def test_d_delete_rename_parse() -> None:
     files = with_approval(REQ)
@@ -118,6 +124,7 @@ def test_d_delete_rename_parse() -> None:
     assert _rules(_d({}, {APPROVAL: b"{"})) == ["D.parse"]
 
 
+@pytest.mark.spec("L2-I20")
 @pytest.mark.requirement("REQ-2026-010-F02")
 def test_d_open() -> None:
     assert _d({}, with_approval(REQ)) == []
@@ -135,6 +142,7 @@ def _closed(tests: dict[str, bytes], spec: str = f"- **[{TAG}] x**\n") -> dict[s
     return {**with_approval(REQ, "closed", spec), **tests}
 
 
+@pytest.mark.spec("L3-U27", "L2-I20")
 @pytest.mark.requirement("REQ-2026-010-F02")
 def test_d_closed() -> None:
     assert _d({}, _closed({TEST: _t(TAG)})) == []
@@ -155,11 +163,13 @@ def test_d_closed_unreadable_spec() -> None:
     assert _rules(_d({}, files)) == ["D.c"]
 
 
+@pytest.mark.spec("L3-U28", "L3-U29", "L2-I20")
 @pytest.mark.requirement("REQ-2026-010-F02")
 def test_d_withdrawn() -> None:
     assert _d({}, {APPROVAL: approval_json(REQ, "withdrawn", {})}) == []
 
 
+@pytest.mark.spec("L3-U29", "L2-I21")
 @pytest.mark.requirement("REQ-2026-010-F02")
 def test_d_d() -> None:
     one = with_approval(REQ)
@@ -177,31 +187,36 @@ def _t_check(files: dict[str, bytes]) -> list[Finding]:
 SPEC = {f".specs/{REQ}/01_req_spec.md": f"- **[{TAG}] x**\n".encode()}
 
 
+@pytest.mark.spec("L2-I22", "L3-U30")
 @pytest.mark.requirement("REQ-2026-010-F03")
 def test_t_a() -> None:
     assert _t_check({**SPEC, TEST: _t(TAG)}) == []
     cases = {
-        "def test_a(): pass": "marker",
-        "@pytest.mark.requirement(V)\ndef test_a(): pass": "リテラル",
-        '@pytest.mark.requirement("bad")\ndef test_a(): pass': "bad",
-        "def (": "解析",
+        "def test_a(): pass": "requirement marker がない",
+        "@pytest.mark.requirement(V)\ndef test_a(): pass": "リテラルでない引数",
+        '@pytest.mark.requirement("bad")\ndef test_a(): pass': "形式不正のタグ: bad",
+        "def (": "解析できない",
     }
-    for src, word in cases.items():
+    for src, message in cases.items():
         findings = _t_check({**SPEC, TEST: src.encode()})
         assert _rules(findings) == ["T.a"]
-        assert word in findings[0].message or word == "marker"
+        assert message in findings[0].message
     mixed = (
         f'@pytest.mark.requirement("{TAG}")\n@pytest.mark.requirement("bad")\ndef test_a(): pass\n'
     )
-    assert _rules(_t_check({**SPEC, TEST: mixed.encode()})) == ["T.a"]
+    mixed_findings = _t_check({**SPEC, TEST: mixed.encode()})
+    assert _rules(mixed_findings) == ["T.a"]
+    assert "形式不正のタグ: bad" in mixed_findings[0].message
 
 
+@pytest.mark.spec("L2-I22", "L3-U31")
 @pytest.mark.requirement("REQ-2026-010-F03")
 def test_t_b() -> None:
     assert _rules(_t_check({TEST: _t(TAG)})) == ["T.b"]
     assert _rules(_t_check({**SPEC, TEST: _t("REQ-2026-010-F02")})) == ["T.b"]
 
 
+@pytest.mark.spec("L2-I22", "L3-U32")
 @pytest.mark.requirement("REQ-2026-010-F03")
 def test_t_c() -> None:
     assert _rules(_t_check({"src/test_x.py": b"", "tests/conftest.py": b"", "x_test.py": b""})) == [
@@ -219,6 +234,7 @@ def _pragma(
 PRAGMA = b"x = 1\nif y:  # pragma: no cover\n    z = 2\n"
 
 
+@pytest.mark.spec("L3-U33", "L2-I48")
 @pytest.mark.requirement("REQ-2026-010-F04")
 def test_pragma_new_and_kept() -> None:
     found = _pragma({"src/a.py": b"x = 1\n"}, {"src/a.py": PRAGMA})
@@ -227,6 +243,7 @@ def test_pragma_new_and_kept() -> None:
     assert _pragma({}, {"src/new.py": PRAGMA})[0].path == "src/new.py:2"
 
 
+@pytest.mark.spec("L3-U33", "L2-I48")
 @pytest.mark.requirement("REQ-2026-010-F04")
 def test_pragma_moves_are_not_additions() -> None:
     assert _pragma({"src/a.py": PRAGMA}, {"src/b.py": PRAGMA}, {"src/a.py": "src/b.py"}) == []
@@ -235,6 +252,7 @@ def test_pragma_moves_are_not_additions() -> None:
     assert _pragma({"src/a.py": PRAGMA}, both) == []
 
 
+@pytest.mark.spec("L3-U33", "L2-I48")
 @pytest.mark.requirement("REQ-2026-010-F04")
 def test_pragma_duplicates_and_ignored_files() -> None:
     twice = PRAGMA + b"if y:  # pragma: no cover\n    z = 2\n"
@@ -244,6 +262,7 @@ def test_pragma_duplicates_and_ignored_files() -> None:
     assert _pragma({"src/a.py": b"\xff"}, {"src/a.py": b"\xff# pragma: no cover"}) == []
 
 
+@pytest.mark.spec("L2-I23", "L3-U34")
 @pytest.mark.requirement("REQ-2026-010-F07")
 def test_human_merge() -> None:
     changes = [
@@ -256,6 +275,7 @@ def test_human_merge() -> None:
     assert human_merge([Change(None, "docs/x.md", "added")]) == ()
 
 
+@pytest.mark.spec("L2-I24", "L3-U35")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_run_all_collects_every_check() -> None:
     base = {**with_approval(REQ), "src/a.py": b"x\n"}
@@ -272,6 +292,7 @@ def test_run_all_collects_every_check() -> None:
     assert not result.ok
 
 
+@pytest.mark.spec("L3-U36")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_run_all_propagates_repo_error() -> None:
     class Broken(FakeRepo):
@@ -298,6 +319,7 @@ def test_k_on_tests_only_pr() -> None:
     assert _rules(_k(new_test, renamed)) == ["K.a"]
 
 
+@pytest.mark.spec("L2-I52")
 @pytest.mark.requirement("REQ-2026-010-F02")
 def test_d_completing_an_open_requirement() -> None:
     spec = f"- **[{TAG}] x**\n- **[REQ-2026-010-F02] y**\n"
@@ -324,6 +346,7 @@ def test_d_completing_an_open_requirement() -> None:
     assert _d({}, finished) == []
 
 
+@pytest.mark.spec("L2-I52")
 @pytest.mark.requirement("REQ-2026-010-F02")
 def test_d_closing_needs_a_valid_open_approval() -> None:
     """L3-U50"""
@@ -347,7 +370,7 @@ def test_d_closing_needs_a_valid_open_approval() -> None:
 
 @pytest.mark.requirement("REQ-2026-010-F03")
 def test_t_flags_a_dynamic_marker_even_next_to_a_literal_one() -> None:
-    """L3-U35"""
+    """L3-U30"""
     spec = f"- **[{TAG}] x**\n"
     source = (
         b"import pytest\n\npytestmark = pytest.mark.requirement("
@@ -368,3 +391,86 @@ def test_d_closing_protects_files_under_numbered_directories() -> None:
     base = {**with_approval(REQ, spec=spec), nested: b"a", TEST: _t(TAG)}
     head = {**with_approval(REQ, "closed", spec), nested: b"b", TEST: _t(TAG)}
     assert [f.path for f in _d(base, head)] == [nested]
+
+
+@pytest.mark.requirement("REQ-2026-010-F01")
+@pytest.mark.spec("L3-U51", "L2-I51")
+def test_k_on_changed_tests_with_an_approval() -> None:
+    approved = with_approval(REQ)
+    base = {**approved, TEST: _t(TAG)}
+    rewritten = {**approved, TEST: _t(TAG, "assert 1")}
+    other_req = {**approved, TEST: _t("REQ-2026-001-F01", "assert 1")}
+    renamed_in = {**approved, TEST: _t(TAG).replace(b"test_a", b"test_b")}
+    renamed_out = {**approved, TEST: _t("REQ-2026-001-F01").replace(b"test_a", b"test_b")}
+    assert _k(base, rewritten) == []
+    assert _rules(_k(base, other_req)) == ["K.c"]
+    assert _k(base, renamed_in) == []
+    assert _rules(_k(base, renamed_out)) == ["K.c"]
+    moved = FakeRepo(base, {**approved, "tests/test_y.py": _t(TAG)}, {TEST: "tests/test_y.py"})
+    assert check_k(moved, moved.changes()) == []
+    no_approval = FakeRepo({TEST: _t(TAG)}, {"tests/test_y.py": _t(TAG)}, {TEST: "tests/test_y.py"})
+    assert check_k(no_approval, no_approval.changes()) == []
+
+
+@pytest.mark.requirement("REQ-2026-010-F01")
+@pytest.mark.spec("L3-U20", "L2-I17")
+@pytest.mark.parametrize("opens", [0, 1, 2])
+@pytest.mark.parametrize("src", [False, True])
+@pytest.mark.parametrize("aux", [False, True])
+@pytest.mark.parametrize("fn", [False, True])
+def test_k_truth_table(*, opens: int, src: bool, aux: bool, fn: bool) -> None:
+    base: dict[str, bytes] = {}
+    for i in range(opens):
+        base.update(
+            with_approval(f"REQ-2026-0{10 + i}", spec=f"- **[REQ-2026-0{10 + i}-F01] x**\n")
+        )
+    head = dict(base)
+    if src:
+        head["src/a.py"] = b"x = 1\n"
+    if aux:
+        head["docs_unused"] = b""
+        head[".specs/REQ-2026-099/notes.txt"] = b"n"
+    if fn:
+        head[TEST] = _t("REQ-2026-010-F01")
+    applies = (src and (aux or fn)) or fn
+    findings = _k(base, head)
+    if not applies:
+        assert findings == []
+    elif opens != 1:
+        assert _rules(findings)[:1] == ["K.a"]
+    else:
+        assert "K.a" not in _rules(findings)
+
+
+@pytest.mark.requirement("REQ-2026-010-F02")
+@pytest.mark.spec("L3-U26", "L2-I20")
+def test_d_open_missing_files_are_reported_per_file() -> None:
+    full = with_approval(REQ)
+    only_design = {k: v for k, v in full.items() if not k.endswith("02_system_tests.md")}
+    only_spec = {k: v for k, v in full.items() if not k.endswith("02_system_design.md")}
+    assert [f.path for f in _d({}, only_design) if f.rule == "D.a"] == [
+        f".specs/{REQ}/02_system_tests.md"
+    ]
+    assert [f.path for f in _d({}, only_spec) if f.rule == "D.a"] == [
+        f".specs/{REQ}/02_system_design.md"
+    ]
+    both = {
+        k: v
+        for k, v in full.items()
+        if not k.endswith(("02_system_tests.md", "03_architecture.md", "04_unit_tests.md"))
+    }
+    assert len([f for f in _d({}, both) if f.rule == "D.a"]) == 3
+    hash_only = {**full, f".specs/{REQ}/03_architecture.md": b"changed"}
+    assert _rules(_d({}, hash_only)) == ["D.b"]
+
+
+@pytest.mark.requirement("REQ-2026-010-F02")
+@pytest.mark.spec("L2-I21")
+def test_d_d_counts_open_approvals_in_head() -> None:
+    one = with_approval(REQ)
+    stale = {**with_approval("REQ-2026-011"), ".specs/REQ-2026-011/01_req_spec.md": b"changed"}
+    assert "D.d" in _rules(_d(one, {**one, **stale}))
+    closed_edit = {**with_approval("REQ-2026-011", "closed"), **with_approval(REQ)}
+    still_open = {**one, **with_approval("REQ-2026-011", "open")}
+    assert "D.d" in _rules(_d({**one, **with_approval("REQ-2026-011", "closed")}, still_open))
+    assert "D.d" not in _rules(_d({}, closed_edit))

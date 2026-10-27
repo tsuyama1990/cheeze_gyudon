@@ -13,6 +13,7 @@ from tests.support.fake_repo import FakeRepo, with_approval
 REQ = "REQ-2026-010"
 
 
+@pytest.mark.spec("L2-I26", "L3-U43")
 @pytest.mark.requirement("REQ-2026-010-F07")
 def test_format_findings() -> None:
     assert format_findings(CheckResult((), ())) == ""
@@ -27,6 +28,7 @@ def test_format_findings() -> None:
     ]
 
 
+@pytest.mark.spec("L2-I26", "L3-U44")
 @pytest.mark.requirement("REQ-2026-010-F07")
 def test_findings_json() -> None:
     empty = json.loads(findings_json(CheckResult((), ())))
@@ -44,6 +46,7 @@ def _repo(*approvals: tuple[str, str]) -> FakeRepo:
     return FakeRepo(files, files)
 
 
+@pytest.mark.spec("L3-U45")
 @pytest.mark.requirement("REQ-2026-010-F06")
 def test_status_no_requirements() -> None:
     out = format_status(_repo(), "worktree")
@@ -52,6 +55,7 @@ def test_status_no_requirements() -> None:
     assert len(short_status(_repo()).splitlines()) <= 3
 
 
+@pytest.mark.spec("L3-U45")
 @pytest.mark.requirement("REQ-2026-010-F06")
 def test_status_one_open_and_two_opens() -> None:
     one = _repo((REQ, "open"))
@@ -61,6 +65,7 @@ def test_status_one_open_and_two_opens() -> None:
     assert "不可 (有効な open な承認が 2 個)" in format_status(two, "HEAD")
 
 
+@pytest.mark.spec("L3-U45")
 @pytest.mark.requirement("REQ-2026-010-F06")
 def test_status_invalid_and_broken_approvals() -> None:
     files = with_approval(REQ)
@@ -86,6 +91,7 @@ def _opener(repo: Repo | Exception) -> Callable[[], Repo]:
     return open_repo
 
 
+@pytest.mark.spec("L3-U48")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_run_check_exit_codes() -> None:
     clean = FakeRepo({}, {})
@@ -96,6 +102,7 @@ def test_run_check_exit_codes() -> None:
     assert "K.a" in out
 
 
+@pytest.mark.spec("L3-U48")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_run_check_unevaluated() -> None:
     code, out = run_check(_opener(RepoError("no base")), as_json=False)
@@ -118,6 +125,7 @@ def test_status_of_a_closed_requirement_is_not_reported_as_invalid() -> None:
     assert "失効" not in text
 
 
+@pytest.mark.spec("L3-U52")
 @pytest.mark.requirement("REQ-2026-010-F06")
 def test_src_change_allowed_follows_base_not_head() -> None:
     closed_on_base = with_approval(REQ, "closed")

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from jtc_gov.domain.gates import APPROVED_FILE_PATTERN, DELIVERABLES, GUARDED_PREFIX
+from jtc_gov.domain.gates import APPROVED_FILE_PATTERN, DELIVERABLES, GUARDED_PREFIX, Deliverable
 from jtc_gov.domain.ids import requirement_of
 from jtc_gov.domain.machinery import machinery_reason
 from jtc_gov.domain.models import Approval, Change, CheckResult, Finding
@@ -10,6 +10,7 @@ from tests.support.paths import MACHINERY_PATHS
 SHA = "a" * 64
 
 
+@pytest.mark.spec("L3-U01")
 @pytest.mark.requirement("REQ-2026-010-F03")
 @pytest.mark.parametrize(
     ("tag", "req"),
@@ -19,6 +20,7 @@ def test_requirement_of_valid(tag: str, req: str) -> None:
     assert requirement_of(tag) == req
 
 
+@pytest.mark.spec("L3-U01")
 @pytest.mark.requirement("REQ-2026-010-F03")
 @pytest.mark.parametrize("tag", ["REQ-2026-010", "req-2026-010-f01", "REQ-INIT-001"])
 def test_requirement_of_invalid(tag: str) -> None:
@@ -26,6 +28,7 @@ def test_requirement_of_invalid(tag: str) -> None:
         requirement_of(tag)
 
 
+@pytest.mark.spec("L3-U02")
 @pytest.mark.requirement("REQ-2026-010-F01")
 @pytest.mark.parametrize(
     ("old", "new", "status"),
@@ -43,6 +46,7 @@ def test_change_invariants_invalid(old: str | None, new: str | None, status: str
         Change(old, new, status)  # type: ignore[arg-type]
 
 
+@pytest.mark.spec("L3-U02", "L3-U03")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_change_paths() -> None:
     assert Change(None, "n", "added").paths() == ("n",)
@@ -60,11 +64,13 @@ def _approval(**over: object) -> dict[str, object]:
     }
 
 
+@pytest.mark.spec("L3-U04")
 @pytest.mark.requirement("REQ-2026-010-F02")
 def test_approval_valid() -> None:
     assert Approval.model_validate(_approval()).state.value == "open"
 
 
+@pytest.mark.spec("L3-U04")
 @pytest.mark.requirement("REQ-2026-010-F02")
 @pytest.mark.parametrize(
     "bad",
@@ -83,6 +89,7 @@ def test_approval_invalid(bad: dict[str, object]) -> None:
         Approval.model_validate(bad)
 
 
+@pytest.mark.spec("L3-U05")
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_check_result_ok() -> None:
     assert CheckResult((), ()).ok
@@ -100,15 +107,26 @@ def test_gate_patterns() -> None:
     assert not GUARDED_PREFIX.match("notes.md")
 
 
+@pytest.mark.spec("L2-I23", "L3-U07")
 @pytest.mark.requirement("REQ-2026-010-F07")
 @pytest.mark.parametrize("path", MACHINERY_PATHS)
 def test_machinery_hits(path: str) -> None:
     assert machinery_reason(path)
 
 
+@pytest.mark.spec("L2-I23", "L3-U07")
 @pytest.mark.requirement("REQ-2026-010-F07")
 @pytest.mark.parametrize(
     "path", ["src/other/x.py", "docs/x.md", ".specs/REQ-2026-010/approval.json", "xconftest.py"]
 )
 def test_machinery_misses(path: str) -> None:
     assert machinery_reason(path) is None
+
+
+@pytest.mark.requirement("REQ-2026-010-F02")
+@pytest.mark.spec("L3-U06")
+@pytest.mark.parametrize("deliverable", DELIVERABLES, ids=lambda d: f"gate-{d.gate}")
+def test_every_deliverable_file_is_an_approved_file(deliverable: Deliverable) -> None:
+    for name in (deliverable.design, deliverable.test_spec):
+        assert APPROVED_FILE_PATTERN.match(name)
+        assert GUARDED_PREFIX.match(name)
