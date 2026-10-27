@@ -236,7 +236,7 @@ def main(event: str) -> NoReturn            # 標準入力を読み、handle を
 ```
 - `classify_git`: `GIT_COMMAND.finditer(command)` の全一致を集め、`commit` が 1 つでもあれば `commit`、なければ `push`(順序によらない)。両方が含まれるときは `commit` を優先する(`git commit && git push`。commit のフックが先に走り、push のときに再び呼ばれる)。
 - `handle`: ペイロードの不備(`tool_input` や `file_path` がない、型が違う)は `HookOutcome(0)` に正規化し、例外を外に出さない。フックは `GitRepo` を開く前に、`origin/main` がなければ 1 回だけ `git fetch origin main` を試す(失敗は `RepoError`。fail-open)。
-- `handle("pre-tool-use", ...)`: `tool_name` が書き込み系なら、`tool_input` の `file_path`(または `notebook_path`)を `root` からの相対パスにして、`src/` 配下で `valid_open` が 1 つでなければ `short_status` 付きの通知。`Bash` なら `classify_git`。commit は `head=worktree`、push は `head=HEAD` で `run_all`。Finding があれば `HookOutcome(2, stderr=format_findings(...))`。
+- `handle("pre-tool-use", ...)`: `tool_name` が書き込み系なら、`tool_input` の `file_path`(または `notebook_path`)を `root` からの相対パスにして、`src/` 配下で `valid_open` が 1 つでなければ `short_status` 付きの通知。`Bash` なら `classify_git`。commit は `head=worktree`、push は `head=HEAD` で `run_all`。`K.`・`D.` で始まる Finding があれば `HookOutcome(2, stderr=format_findings(...))`。それ以外(`T.`、`Q.`)だけなら `HookOutcome(0, stderr=警告 + format_findings(...))`(DEC-039)。
 - `.specs/` がなければ、通知系は `HookOutcome(0)`。拒否系は検査を実行する(03 §7)。
 - 例外(`RepoError` を含む)は、拒否系では `HookOutcome(0, stderr="gov hook: 検査を実行できませんでした: …(権威は CI)")`、通知系では `HookOutcome(0)`。`except Exception` を使うので、その行に理由のコメントを書く(ruff の `BLE001`)。 [決定の適用: 03 §7]
 - 標準入力が JSON でない、`cwd` が git の外 → `HookOutcome(0)`。

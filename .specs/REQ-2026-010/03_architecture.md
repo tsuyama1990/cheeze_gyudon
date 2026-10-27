@@ -232,13 +232,13 @@ for t in head_count: if head_count[t] > base_count.get(t, 0): Finding(Q.pragma, 
 | イベントとマッチャー | 内容 | 出力 |
 |---|---|---|
 | `PreToolUse`、`Edit\|Write\|MultiEdit\|NotebookEdit` | 対象パスをルートからの相対パスにする。`src/` の下で、`valid_open` が 1 つでなければ通知する。拒否しない | 標準出力(通知) |
-| `PreToolUse`、`Bash` | コマンド文字列に、正規表現 `(?:^\|[\s;&\|(`{"'])git(?:\s+-\S+(?:\s+[^\s-]\S*)?)*\s+(commit\|push)\b` が一致したら対象にする(`command git commit`、`env git push`、サブシェル、複数行、`git -C . commit` も一致する)。`commit` なら `head=作業ツリー`、`push` なら `head=HEAD` で `run_all` を実行し、Finding があれば拒否する。**偽陽性を許し、偽陰性を減らす**: 引用符の中の `git commit` にも一致するが、拒否するのは検査が失敗するときだけ。シェルの別名や、`git commit` を含まない書き込み(`git stash` など)は検出できない(N1) | 標準エラー(拒否)/ なし |
+| `PreToolUse`、`Bash` | コマンド文字列に、正規表現 `(?:^\|[\s;&\|(`{"'])git(?:\s+-\S+(?:\s+[^\s-]\S*)?)*\s+(commit\|push)\b` が一致したら対象にする(`command git commit`、`env git push`、サブシェル、複数行、`git -C . commit` も一致する)。`commit` なら `head=作業ツリー`、`push` なら `head=HEAD` で `run_all` を実行し、**K と D の Finding があれば拒否する**(T と Q.pragma の Finding は、標準エラーに警告を出して通す。CI が止めるので、ローカルは助言。DEC-039)。**偽陽性を許し、偽陰性を減らす**: 引用符の中の `git commit` にも一致するが、拒否するのは検査が失敗するときだけ。シェルの別名や、`git commit` を含まない書き込み(`git stash` など)は検出できない(N1) | 標準エラー(拒否)/ なし |
 | `SessionStart` | `gov status` と同じ要約(3 行以内) | 標準出力(通知) |
 | `UserPromptSubmit` | 同上。承認の状態が変わっていなければ短くする | 標準出力(通知) |
 
 - **内部エラーの扱い**: ローカルのフックは助言なので(DEC-002)、`gov` 自身のエラー(例外、`RepoError` を含む)では**拒否しない**。拒否系は、終了コード 0 と標準エラーの警告「gov hook: 検査を実行できませんでした: …(権威は CI)」を返す。通知系は、何も出さずに終了コード 0。拒否するのは、規則違反(Finding)があるときだけ。権威は CI で、`gov check` の評価不能は終了コード 2 の失敗になる。 [決定の適用: DEC-002。提案: Q-L2-7。レビュー指摘 MAJ-9]
 - `Stop` はプロジェクトでは置かない(§0 #2)。全体設定の `Stop` フックが `scripts/gate.sh` を呼ぶ。
-- 設定ファイル `.claude/settings.json` は入れ子形式で、`gov hook <event>` を呼ぶ。内容は `gov init` が出す。この文書には複製しない。
+- 設定ファイル `.claude/settings.json` は入れ子形式で、`gov hook <event>` を呼ぶ。内容は `gov init` が出す。この文書には複製しない。呼び出しは `$CLAUDE_PROJECT_DIR/.venv/bin/gov` とする。`uv run` は失敗すると終了コード 2 を返し、すべてのツール呼び出しを止めてしまうため(実行ファイルがなければ 127 で、拒否にならない)。 [DEC-039]
 
 ---
 

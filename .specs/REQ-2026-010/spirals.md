@@ -71,6 +71,7 @@
 | 2 | L2(詳細設計)と、結合テスト仕様 | **設計書は完了**(DeepSeek のレビュー 2 回、致命 0。[reviews/](reviews/))。承認済み(DEC-036)。小さな問い Q-L2-4〜8 は DEC-031〜035 |
 | 3 | L3(クラス設計)と、単体テスト仕様(`04_detail_design.md`、`04_unit_tests.md`) | **設計書は完了**(DeepSeek のレビュー 2 回、致命 0)。承認済み(DEC-036) |
 | 4 | 実装(02 §11)。`domain`・`derive`・`checks`・`repo_git`・`gov check/status` を実装し、v1 を削除(マージ済み) | 進行中。L1 の E2E は `tests/e2e/`、構造検査は `tests/unit/test_structure.py` に実装済み(E01〜E25、E27、E29、E30、E34、E36、E43〜E45、S01〜S04)。`gov hook`・`init`・`doctor` と、そのテスト(E37〜E40、E42、I01、I29〜I37、I43、I44、I50)も実装済み。変更行カバレッジと Q のツール(E26、E28、E31〜E33)は `tests/e2e/test_quality_gate.py` に実装済み。`main` の ruleset は適用済み(DEC-040)。手動確認 M01(実機の `claude -p`)は未実施 |
+| 5 | 全体レビュー 1 回目(Opus、DeepSeek)と、設計の改訂 2(DEC-041、DEC-042)。続いて実装の修正と、承認の更新 | 進行中。次は、改訂後の全体レビューを 1 回ずつ |
 
 ## 5. スパイラル 2(L2)の計画
 
