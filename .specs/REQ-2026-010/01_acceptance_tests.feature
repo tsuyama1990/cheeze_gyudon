@@ -76,4 +76,4 @@ Feature: 承認された設計だけが main に入る
   # [REQ-2026-010-F09]
   Scenario: ゲートの入口が 1 つで、すべての経路がそれを呼ぶ
     Then scripts/gate.sh が存在し、実行可能である
-    And CI、pre-commit、全体設定のフック、マージスクリプトが、それを呼ぶ
+    And CI、全体設定のフック、マージスクリプトが、それを呼ぶ

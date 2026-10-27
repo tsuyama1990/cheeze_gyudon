@@ -33,7 +33,7 @@
 | 全体設計(構成要素、規則 K・D・T・Q、フック、フロー) | `02_system_design.md`(この文書) | README は 1 段落の概要と参照 |
 | ゲートごとの成果物の定義 | コード(`domain`)。設計の意図は §5 に 1 回だけ | AGENT.md、README は参照 |
 | 数値とツールの設定(複雑度、カバレッジの閾値、型の厳しさ) | `pyproject.toml` | 文書に数値を書かない(「`pyproject.toml` の設定値」と書く) |
-| 品質ゲートの入口 | `scripts/gate.sh` | CI、pre-commit、README、AGENT.md は gate.sh を呼ぶか参照する |
+| 品質ゲートの入口 | `scripts/gate.sh` | CI、全体設定のフック、マージスクリプトは gate.sh を呼ぶ。README、AGENT.md は参照。pre-commit は衛生フックだけで、品質検査は gate.sh が行う |
 | 決定 | `decisions.md` | DEC-ID で参照。経緯を他に書かない |
 | レビューの指摘と対応 | `reviews/` | 設計書に経緯の本文を書かない |
 | 実測値(件数、現状の強制状況) | `background/as_is_inventory.md`(日付つき) | 引用せず参照する。やむを得ず書くときは日付を付ける |
@@ -50,7 +50,7 @@
 ## 3. 構成要素
 
 ```
- adapters:  cli (click) │ claude_hook (stdin JSON) │ github_action (PR 差分)
+ adapters:  cli (click) │ claude_hook (stdin JSON) │ repo_git (Repo の実装)
                 │ 呼ぶ
             checks  (検査。Findings を返す)
                 │ 使う
@@ -67,8 +67,8 @@
 | **derive** | 承認が有効か、現在ゲート(表示用)を計算する(§5) | `Repo` 経由で読むだけ |
 | **checks** | K、D、T と、Q のうちタグの整合を検査し、Findings を返す | `Repo` 経由で読むだけ |
 | **adapters/cli** | `gov` のコマンド。導出と検査の結果を表示する | なし |
-| **adapters/claude_hook** | Claude Code のフック(§6)。stdin の JSON を受け、`checks` を呼び、拒否は exit 2、通知は標準出力 | なし(Stop の失敗回数のみ保存、§6) |
-| **adapters/github_action** | PR の `base` と `head` から `Repo` を作り、`checks` を呼び、必須チェックの結果を返す | なし |
+| **adapters/claude_hook** | Claude Code のフック(§6)。stdin の JSON を受け、`checks` を呼び、拒否は exit 2、通知は標準出力 | なし |
+| **adapters/repo_git** | `Repo` の実装(git)。`head` の指し方(CI のマージ結果、HEAD、作業ツリー)を切り替える。詳細は [03_architecture.md](03_architecture.md) §2 | git を読む |
 
 ### 3.1 `Repo`(`derive` と `checks` が使う唯一の入口)
 `derive` と `checks` は、ファイルシステム、時刻、環境変数、git を直接使わない。次の薄いインターフェースだけを通して読む。 [決定: RepoView を薄いインターフェースに替える(2026-10-27)]
@@ -79,7 +79,7 @@
 | `list(ref)` | `ref` の時点の追跡ファイルのパス一覧 |
 | `changes(base, head)` | 変更の一覧。改名は旧パスと新パスの両方を持つ |
 
-- `ref` は `base`(`main`)、`head`(PR の先頭。push のフックでは HEAD)、`worktree`(作業ツリー。書き込みごと、commit、Stop のフック)の 3 つ。
+- `ref` は `base`(`main`)と `head` の 2 つ。`head` が何を指すかは入口が決める: CI は PR のマージ結果、push のフックは HEAD、commit と書き込みのフックと `gov check` の既定は作業ツリー。詳細は [03_architecture.md](03_architecture.md) §2。
 - `index` は使わない。`git add … && git commit` のように、`PreToolUse` の時点では `git add` がまだ走っておらず、`-a` も同じで、index を正しく検査できない。また Q(pytest、mypy、diff-cover)は作業ツリーを読む。commit のフックは作業ツリー全体を検査する(未ステージの変更も含むため、偽陽性がありうる)。 [Opus X3 への対応]
 - 実装は adapters が持つ(git、作業ツリー、テスト用の偽物)。`derive` と `checks` は実装を知らない。これで、フックと CI が同じ `checks` を呼べ、単体テストは偽物で書ける。
 - フックは `base` を `origin/main` とし、必要なら `git fetch` する。ネットワーク禁止の制約は撤廃した。 [決定: 2026-10-27]
@@ -90,10 +90,10 @@
 
 | ID | 適用対象 | 規則 |
 |---|---|---|
-| **K** | `src/**` を変更し、かつ `tests/**` または `.specs/**` も変更する PR | (a) `base` に、有効な承認が**ちょうど 1 つ**ある。0 個、または 2 個以上なら失敗 (b) この PR は、`approval.json` と、マニフェストが列挙する承認済みファイル(01〜05)を変更しない (c) この PR が変更するテストの marker の要件と、変更する `.specs/<REQ>/` の要件は、すべて (a) の要件である |
-| **D** | `approval.json` を変更または削除する PR(決定 PR) | 状態 `open`: (a) `head` でゲート 1〜4 の成果物(設計と、対のテスト仕様の**文書**)がそろっている。ゲート 4 の対は文書(例: `04_test_spec.md`)で、実行可能なテスト(`tests/`)ではない (b) ハッシュが `head` の内容と一致し、承認済みファイルの集合が `head` の `.specs/<REQ>/0[1-5]_*` と一致する (d) 変更後、`open` の承認が 2 つ以上にならない。状態 `closed`: (c) 仕様の全機能タグに対応するテストの marker が存在する。状態 `withdrawn`: 追加の条件なし(未完の要件の取り下げ)。(a)(b) は `closed`・`withdrawn` には求めない(履歴として閉じる要件を含む)。`approval.json` の削除は失敗 |
-| **T** | すべての PR | (a) テスト関数は、形式が `REQ-YYYY-NNN-Fnn` の `requirement` marker を持つ (b) marker の要件の仕様(`.specs/<REQ>/01_req_spec.md`)が存在し、そのタグに含まれる (c) テストのファイル(`test_*.py`、`*_test.py`)は `tests/**` にある |
-| **Q** | すべての PR | lint(ruff)、型(mypy)、デッドコード(vulture)、テストの合格、分岐カバレッジが `pyproject.toml` の設定値以上、`src/**` の**変更行のカバレッジ**が設定値以上(`diff-cover`、dev 依存に既にある。閾値は設定に置き、`--fail-under` を必ず指定する。テストコードは対象外)。新しい `# pragma: no cover` の追加は失敗。`closed` にする決定 PR(D(c))も、この Q を通る |
+| **K** | `src/**` を変更し、かつ `tests/**` または `.specs/**` も変更する PR | (a) `base` に、有効な承認が**ちょうど 1 つ**ある。0 個、または 2 個以上なら失敗 (b) この PR は、`approval.json` と、`.specs/<REQ>/` の `0[1-5]_*`(承認済みのものと、新しく足すもの)を変更しない (c) この PR が変更するテストの marker の要件と、変更する `.specs/<REQ>/` の要件は、すべて (a) の要件である |
+| **D** | `approval.json` を変更または削除する PR(決定 PR) | 状態 `open`: (a) `head` でゲート 1〜4 の成果物(設計と、対のテスト仕様の**文書**)がそろっている。ゲート 4 の対は文書(`04_unit_tests.md`)で、実行可能なテスト(`tests/`)ではない (b) ハッシュが `head` の内容と一致し、承認済みファイルの集合が `head` の `.specs/<REQ>/0[1-5]_*` と一致する (d) 変更後、`open` の承認が 2 つ以上にならない。状態 `closed`: (c) 仕様(`01_req_spec.md`)が存在し、その全機能タグに対応するテストの marker が存在する。状態 `withdrawn`: 追加の条件なし(未完の要件の取り下げ)。(a)(b) は `closed`・`withdrawn` には求めない(履歴として閉じる要件を含む)。`approval.json` の削除は失敗 |
+| **T** | すべての PR | (a) テスト関数は、形式が `REQ-YYYY-NNN-Fnn` の `requirement` marker を持つ (b) marker の要件の仕様(`.specs/<REQ>/01_req_spec.md`)が存在し、そのタグに含まれる (c) テストのファイル(`test_*.py`)は `tests/**` にある |
+| **Q** | すべての PR | lint(ruff)、型(mypy)、デッドコード(vulture)、テストの合格、分岐カバレッジが `pyproject.toml` の設定値以上、`src/**` の**変更行のカバレッジ**が設定値以上(`diff-cover`、dev 依存に既にある。閾値は設定に置き、`--fail-under` を必ず指定する。テストコードは対象外)。新しい `# pragma: no cover` の追加は失敗(`gov check` の内容検査。[03_architecture.md](03_architecture.md) §4.5)。`closed` にする決定 PR(D(c))も、この Q を通る |
 
 - **承認が有効** = マニフェストが存在し、状態が `open` で、承認済みファイルのハッシュが `base` の現在の内容と一致し、承認済みの集合が `base` の `.specs/<REQ>/0[1-5]_*` と一致する(承認後に足したファイルがあると無効)。
 - 仕様のタグにテストがない状態(途中)は、`open` の間は許す。そろっているかは、`closed` にする決定 PR のときだけ確認する(D(c))。 [決定: G3 の限定(2026-10-27)]
@@ -121,7 +121,7 @@ A1([01_req_spec.md](01_req_spec.md) §3)が未成立なので、次は規約で�
 CI は、これらの PR であることを出力に明示する(人間のマージが必要と表示する)。強制はしない。A1 の解消後に、CODEOWNERS による承認の強制へ引き上げる。 [推論]
 
 ### 4.4 検証機構(変更に人間のマージが必要なもの)
-`.github/**`、`scripts/**`、`pyproject.toml`、`uv.lock`、`.pre-commit-config.yaml`、`.claude/settings.json`、`.claude/hooks/**`、任意の `conftest.py`、`AGENT.md`、`CLAUDE.md`、`src/jtc_gov/{domain,derive,checks}/**`、`src/jtc_gov/adapters/{github_action,claude_hook}/**`。 [決定: フック設定はプロジェクトごと(2026-10-27)。推論: 一覧]
+`.github/**`、`scripts/**`、`pyproject.toml`、`uv.lock`、`.pre-commit-config.yaml`、`.gitattributes`、`.claude/settings.json`、`.claude/hooks/**`、任意の `conftest.py`、`AGENT.md`、`CLAUDE.md`、`src/jtc_gov/**`(この製品自身のリポジトリでは、全体がチェッカー。他のリポジトリには存在しないパス)。 [決定: フック設定はプロジェクトごと(2026-10-27)。推論: 一覧]
 
 `pull_request` の CI は PR 側のチェッカーを実行するため、PR がチェッカーを書き換えて通過できる [データ: proposal §6 U3a]。この穴は C2・C3 で補う。`main` 側のチェッカーで実行する方式は L2 で実測して決める。
 
@@ -161,9 +161,9 @@ CI は、これらの PR であることを出力に明示する(人間のマー
 | イベント | やること | 性質 |
 |---|---|---|
 | `PreToolUse`(Edit / Write / MultiEdit / NotebookEdit) | `src/**` への書き込みで、有効な承認がちょうど 1 つでなければ、通知を出す(「テストまたは仕様も変える場合は、先に承認が必要」)。**拒否しない**。書き込みの時点では、リファクタ(K 不要)か新しい挙動(K 必要)かを区別できないため | 通知 |
-| `PreToolUse`(Bash の `git commit*`) | 作業ツリー全体(`worktree`)に対して、K、D、T、Q を実行する。K はここで初めて、テストや仕様の変更が伴うかを判定できる。未ステージの変更も検査対象になる | 拒否 |
-| `PreToolUse`(Bash の `git push*`) | HEAD(`head`)に対して、K、D、T を実行する(push されるのは HEAD) | 拒否 |
-| `Stop` | 全検査を実行する。通らなければ終了させない(exit 2)。連続 3 回失敗したら、終了を許し(exit 0)、通らない理由を報告する。失敗回数は、リポジトリ内の未追跡の場所に保存し、成功で消す(場所は L2) | 拒否 |
+| `PreToolUse`(Bash の `git commit*`) | 作業ツリー全体に対して、K、D、T を実行する(Q のツールは `gate.sh` が実行する。[03_architecture.md](03_architecture.md) §5)。K はここで初めて、テストや仕様の変更が伴うかを判定できる。未ステージの変更も検査対象になる | 拒否 |
+| `PreToolUse`(Bash の `git push*`) | HEAD に対して、K、D、T を実行する(push されるのは HEAD) | 拒否 |
+| `Stop` | **プロジェクトのフックは置かない。** 全体設定の `Stop` フック(`~/.claude/hooks/stop_gate.sh`)が `scripts/gate.sh` を呼び、失敗回数の管理(3 回)までしている。`gate.sh` が `gov check` を含むので、K・D・T もここで検査される。重複させない(DEC-025) | (全体設定) |
 | `SessionStart`、`UserPromptSubmit` | 状態(現在ゲート、承認の有効/失効、「テストまたは仕様も変える `src/` 変更が可能か」)を、エージェントに伝える | 通知 |
 
 - フックは助言であり、強制ではない(N1)。`git commit` を経ない書き込み(`git stash` など)は検出できない。配線の確認は、`claude -p` で実際に拒否されることを手動で確かめる(LLM の挙動に依存するため、自動のテストにしない)。 [データ: 現行フックは読み込まれず、exit 1 では拒否にならない]
@@ -216,7 +216,7 @@ CI は、これらの PR であることを出力に明示する(人間のマー
 | `services/tracer.py`(101) | checks(T、D(c)) | `Repo` 経由に。アクティブ要件の限定を外す |
 | `scaffold/initializer.py`(105) | (MVP 外。ただし `.claude/settings.json` の雛形出力は残す) | 縮小 |
 | `diagnostics/doctor.py`(87) | adapters/cli | 遅延チェックを削除 |
-| `integrations/github/*`(208) | adapters/github_action | PR 差分の判定に再設計。コメント整形は MVP 外 |
+| `integrations/github/*`(208) | (廃止) | CI は `gate.sh` を呼ぶだけで、イベントの解析が要らない(L2 の結論)。コメント整形は MVP 外 |
 | `cli.py`(247) | adapters/cli | コマンド体系の変更(D8)。`ci-verify` は `state.json` に依存しているため、`state.json` の廃止と同じ PR で置き換える |
 | `scripts/doc_sync_guard.py`、`check_duplicates.py` | (廃止) | 撤廃した制約(§1) |
 | `scripts/gate.sh` | Q | 重複検出を削除。カバレッジの必須は維持。変更行のカバレッジ(`--fail-under` 付き)を追加 |
