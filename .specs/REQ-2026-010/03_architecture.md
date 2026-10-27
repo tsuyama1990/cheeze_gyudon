@@ -285,7 +285,7 @@ for t in head_count: if head_count[t] > base_count.get(t, 0): Finding(Q.pragma, 
 
 ```
 src/jtc_gov/
-  domain/    ids.py  models.py  gates.py  machinery.py
+  domain/    ids.py  models.py  repo.py  gates.py  machinery.py
   derive/    approvals.py  markers.py  gates.py
   checks/    k.py  d.py  t.py  __init__.py(run_all)
   adapters/  cli.py  claude_hook.py  repo_git.py  report.py(出力の整形。cli と claude_hook が共有する)

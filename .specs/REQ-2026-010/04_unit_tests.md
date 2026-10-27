@@ -19,19 +19,19 @@
 | L3-U04 | `Approval` の厳格な検証 | 正常、状態が不正、`files` のキーが `0[1-5]_*` でない(サブディレクトリ、`06_x.md`)、ハッシュが大文字、63 桁、余分なキー、`requirement` が不正な形式 | 正常以外は `ValidationError` | F02 | できない |
 | L3-U05 | `CheckResult.ok` | findings が空 / 空でない | 真 / 偽 | F01 | できない |
 | L3-U06 | `DELIVERABLES`・`APPROVED_FILE_PATTERN`・`GUARDED_PREFIX` | ゲート 1〜4 の各ファイル名、`05_decision.md`、`06_x.md`、`notes.md`、`01_notes/extra.md` | パターンへの一致が 03 §1.1・§4.1 のとおり | F02 | できない |
-| L3-U07 | `machinery_reason` | 02 §4.4 の全パターンの代表パス、`.gitattributes`、`src/jtc_gov/adapters/cli.py`、`src/other/x.py`、`docs/x.md`、`.github/workflows/x.yml`、`scripts/gate.sh`、`.specs/REQ-2026-010/approval.json`(これは `human_merge` 側) | 当たるものは表示名、それ以外は None。`*` が `/` を越えないこと(`scripts/*` と `scripts/a/b.py`) | F07 | できない |
+| L3-U07 | `machinery_reason` | 02 §4.4 の全パターンの代表パス、`.gitattributes`、`src/jtc_gov/adapters/cli.py`、`src/other/x.py`、`docs/x.md`、`.github/workflows/x.yml`、`scripts/gate.sh`、ルート直下の `conftest.py` と `tests/sub/conftest.py`、`.specs/REQ-2026-010/approval.json`(これは `human_merge` 側) | 当たるものは表示名、それ以外は None。`*` が `/` を越えないこと(`scripts/*` と `scripts/a/b.py`) | F07 | できない |
 
 ## 3. `derive`
 
 | ID | 対象 | ケース | 期待 | 要件 | 現行 |
 |---|---|---|---|---|---|
 | L3-U08 | `sha256_hex` | 空、LF、CRLF | 既知のダイジェスト。LF と CRLF は違う | F01 | できない |
-| L3-U09 | `parse_approval` | 正常、JSON でない、空、`requirement` がディレクトリ名と違う、Approval の不正(U04 の各ケース)、**JSON の重複キー**(`state` が 2 回) | 正常は `Approval`、他は `ParseFailure`(理由つき。重複キーは黙って後勝ちにしない) | F02 | できない |
+| L3-U09 | `parse_approval` | 正常、JSON でない、空、`requirement` がディレクトリ名と違う、Approval の不正(U04 の各ケース)、**JSON の重複キー**(`state` が 2 回)、**非 UTF-8 のバイト列** | 正常は `Approval`、他は `ParseFailure`(理由つき。重複キーは黙って後勝ちにしない) | F02 | できない |
 | L3-U10 | `load_approvals` | `approval.json` が 0 個、1 個、2 個、壊れたもの 1 個、`approval.json` に似た名前(`approval.json.bak`、`x/approval.json`) | 正確なパスだけを読む。壊れたものは `ParseFailure` で返る | F02 | できない |
 | L3-U11 | `validity` | 状態が `closed`、承認後に `05_*` を足した、承認済みのファイルが消えた、ハッシュが違う、複数の問題が同時、すべて一致 | 一致は空。それ以外は種別ごとの `Reason` が個別に返る | F01 | できない |
 | L3-U12 | `valid_open` | open が 0 個、1 個、2 個、open だが無効なもの、`closed`、壊れた承認 | 有効な open だけ。壊れたものと無効なものは含まれない | F01 | できない |
-| L3-U13 | `spec_tags` | 要件の行(`- **[TAG] 名前**`、`* **[TAG]**`)、本文中の `[TAG]`、フェンスの中の行、形式不正のタグ、重複、`01_req_spec.md` がない、UTF-8 でない | 要件の行の正しいタグだけ。他は拾わない。仕様なし・デコード失敗は空集合 | F03 | できない |
-| L3-U14 | `test_functions`: 抽出 | モジュール直下の `test_a`、`Test*` クラスのメソッド、`Test*` でないクラスの `test_x`、ネストした `test_inner`、`test` で始まらない関数、非同期、**モジュール直下の `if`・`try` の中の `def test_*`**、**同名関数の重複定義** | 直下(`if`・`try`・`with` の本体を含む)とクラス直下の `test*` だけ。ネストした関数は含まない。重複は別の項目(`#2`)になる | F03 | できない |
+| L3-U13 | `spec_tags` | 要件の行(`- **[TAG] 名前**`、`* **[TAG]**`)、本文中の `[TAG]`、フェンスの中の行、形式不正のタグ、重複、`01_req_spec.md` がない、UTF-8 でない | 要件の行の正しいタグだけ。他は拾わない。仕様なしは空集合、デコード失敗は `ParseFailure`(D.c が失敗にする) | F03 | できない |
+| L3-U14 | `test_functions`: 抽出 | モジュール直下の `test_a`、`Test*` クラスのメソッド、`Test*` でないクラスの `test_x`、ネストした `test_inner`、`test` で始まらない関数、非同期、**モジュール直下の `if`・`try`・`for`・`while`・`match` の中の `def test_*`**、**同名関数の重複定義** | 直下(`if`・`try`・`with` の本体を含む)とクラス直下の `test*` だけ。ネストした関数は含まない。重複は別の項目(`#2`)になる | F03 | できない |
 | L3-U15 | `test_functions`: marker | `@pytest.mark.requirement("T")`、`@requirement("T")`、複数の marker、引数が変数、引数なし、クラスのデコレータ、`pytestmark = pytest.mark.requirement("T")`、**`pytestmark = [pytest.mark.requirement("T"), …]`(リスト・タプル)**、他の marker だけ | リテラルは `tags` に入る。変数・引数なしは `has_marker` だけ真。クラスとモジュールの marker は各関数に加わる。他の marker は無視 | F03 | できない |
 | L3-U16 | `test_functions`: 範囲とハッシュ | デコレータ付き(複数行の `parametrize`)、同じ内容のコメントだけの変更、関数内の 1 文字の変更 | ソースの範囲はデコレータの最初の行から `end_lineno`。関数内の変更で `source_sha` が変わる。関数の外のコメントでは変わらない [データ: R7] | F01 | できない |
 | L3-U17 | `test_functions`: 失敗 | 構文エラー、非 UTF-8 のバイト列、空ファイル | 前 2 つは `ParseFailure`。空は空のリスト [データ: R7] | F03 | できない |
@@ -64,17 +64,17 @@
 
 | ID | 対象 | ケース | 期待 | 要件 | 現行 |
 |---|---|---|---|---|---|
-| L3-U37 | `classify_git` | `git commit -m x`、`git -C . commit`、`git add . && git commit`、`git commit -a`、`git push origin x`、`command git commit`、`env git push`、`(git commit)`、複数行、`echo "git commit"`、`bash -c "git commit"`、`git stash`、`git status`、`git log --oneline`、`github commit`、`legit commit` | commit・push は対応する値(`command`、`env`、サブシェル、複数行、引用符の中を含む)。`git stash`、`git status`、`git log`、`github commit`、`legit commit` は None。`git commit && git push` は `commit` | F05 | できない |
+| L3-U37 | `classify_git` | `git commit -m x`、`git -C . commit`、`git add . && git commit`、`git commit -a`、`git push origin x`、`command git commit`、`env git push`、`(git commit)`、複数行、`git push && git commit`、`git push; git commit`、`echo "git commit"`、`bash -c "git commit"`、`git stash`、`git status`、`git log --oneline`、`github commit`、`legit commit` | commit・push は対応する値(`command`、`env`、サブシェル、複数行、引用符の中を含む)。`git stash`、`git status`、`git log`、`github commit`、`legit commit` は None。`git commit && git push` は `commit` | F05 | できない |
 | L3-U38 | `handle`: 書き込み | `src/` 内で承認 0 / 1 / 2、`src/` 外、絶対パス、リポジトリ外、`notebook_path` | `src/` 内で承認が 1 つでなければ通知(拒否しない、終了コード 0)。他は出力なし | F05 | できない |
 | L3-U39 | `handle`: commit | 違反あり / なし(`FakeRepo`) | 違反ありは終了コード 2 と標準エラー。なしは 0 | F05 | できない |
 | L3-U40 | `handle`: push | 同上 | 同上 | F05 | できない |
 | L3-U41 | `handle`: 例外 | `repo_factory` が `RepoError` を投げる、`Exception` を投げる | 拒否系は終了コード 0 と警告。通知系は終了コード 0 で出力なし | F05 | できない |
-| L3-U42 | `handle`: 入力の不備 | `payload` に `tool_name` なし、未知のツール、`.specs/` なし(通知系 / 拒否系) | 未知のツールは何もしない。`.specs/` なしは通知系が何もせず、拒否系が検査を実行 | F05 | できない |
-| L3-U43 | `report.format_findings` | 0 件、複数件、`human_merge` あり | 1 行 1 件の形式。最後に「人間のマージが必要」の行(あるときだけ) | F07 | できない |
+| L3-U42 | `handle`: 入力の不備 | `payload` に `tool_name` なし、未知のツール、`.specs/` なし(通知系 / 拒否系)、`tool_input` なし、`file_path` なし、型が違う | 未知のツールは何もしない。`.specs/` なしは通知系が何もせず、拒否系が検査を実行 | F05 | できない |
+| L3-U43 | `report.format_findings` | 0 件、複数件、`path` が None、`human_merge` あり | 1 行 1 件の形式(`path` が None なら `<rule>: <message>`)。最後に「人間のマージが必要」の行(あるときだけ) | F07 | できない |
 | L3-U44 | `report.findings_json` | 0 件、複数件 | JSON として読め、`ok`、`findings`、`human_merge` を持つ | F07 | できない |
-| L3-U45 | `report.short_status` / `format_status` | 要件 0、1、2、無効な承認(理由つき) | 3 行以内(short)。理由が出る | F06 | できない |
+| L3-U45 | `report.short_status` / `format_status` | 要件 0、1、2、無効な承認(理由つき)、`src/` を変えてよいか(open が 1 つ / 0 / 2) | 3 行以内(short)。理由が出る | F06 | できない |
 | L3-U46 | `render_settings` / `render_gitattributes` | 出力 | `settings` は入れ子形式で `gov hook` を呼ぶ。`.gitattributes` は `.specs/** text eol=lf` を含む | F05 | できない |
-| L3-U47 | `FakeRepo` | `list` の昇順、`changes` の追加・変更・削除・指定した改名、`read` の None。モードだけの変更は表現しない | 契約(03 §2)のとおり。実 git との一致は適合テスト(L2-I09) | F01 | できない |
+| L3-U47 | `FakeRepo`、`GitRepo.changes` のフィールド(added は old=None、modified は同じパス、deleted は new=None) | `list` の昇順、`changes` の追加・変更・削除・指定した改名、`read` の None。モードだけの変更は表現しない | 契約(03 §2)のとおり。実 git との一致は適合テスト(L2-I09) | F01 | できない |
 | L3-U48 | `run_check` | `open_repo` が `RepoError` を投げる / 想定外の例外を投げる / 違反あり / 通過、`--json` の有無 | 順に 終了コード 2 と `E.repo` の行、2 と `E.internal`(traceback なし)、1、0。JSON も同じ内容 | F01 | できない |
 
 ## 6. 追跡表(設計 → テスト)

@@ -43,7 +43,7 @@ class ApprovalState(StrEnum): OPEN = "open"; CLOSED = "closed"; WITHDRAWN = "wit
 class Approval(BaseModel):                  # frozen、extra="forbid"、strict
     requirement: RequirementId
     state: ApprovalState
-    files: dict[str, Sha256]                # キーは r"^0[1-5]_[^/]+$"(直下のファイル名のみ)
+    files: dict[str, Sha256]                # キーは r"^0[1-5]_[^/]+$"(直下のファイル名のみ)。dict のキーは型注釈では検証されないので、`@field_validator("files")` で全キーを検査する
 
 @dataclass(frozen=True)
 class ParseFailure: reason: str
@@ -59,6 +59,9 @@ class CheckResult:
     @property
     def ok(self) -> bool: return not self.findings
 ```
+
+### 2.2b `domain/repo.py`
+`Repo` Protocol(03 §2 の契約)をここに 1 回だけ定義する。`derive`・`checks`・`adapters` はここから import する。`adapters` に定義しない(逆依存を避ける)。 [レビュー R2-01]
 
 ### 2.3 `domain/ids.py`
 ```python
@@ -84,7 +87,7 @@ GUARDED_PREFIX: Final = re.compile(r"^0[1-5]_")               # K.b: ディレ�
 MACHINERY: Final[tuple[tuple[str, re.Pattern[str]], ...]]    # (表示名, パターン)。正本の内容は 02 §4.4
 def machinery_reason(path: str) -> str | None: ...           # 当たった表示名、なければ None
 ```
-パターンは、`fnmatch` ではなく正規表現に変換して保持する(`**` を `.*`、`*` を `[^/]*` に)。 [推論: `fnmatch` の `*` は `/` を越えるため、意図と違う]
+パターンは、`fnmatch` ではなく正規表現に変換して保持する(`**` を `.*`、`*` を `[^/]*` に。正規表現のメタ文字はエスケープする。パターン `**/name` は、ルート直下も含めるため `(?:.*/)?name` にする)。 [レビュー R2-10] [推論: `fnmatch` の `*` は `/` を越えるため、意図と違う]
 
 ## 3. `derive`
 
@@ -100,12 +103,12 @@ def parse_approval(raw: bytes, dir_name: str) -> Approval | ParseFailure
 def load_approvals(repo: Repo, ref: Ref) -> dict[str, Approval | ParseFailure]   # キーは要件 ID(ディレクトリ名)
 def validity(repo: Repo, ref: Ref, approval: Approval) -> list[Reason]            # 空なら有効
 def valid_open(repo: Repo, ref: Ref) -> list[Approval]
-def spec_tags(repo: Repo, ref: Ref, req: str) -> set[str]
+def spec_tags(repo: Repo, ref: Ref, req: str) -> set[str] | ParseFailure
 ```
-- `parse_approval`: `json.loads(raw, object_pairs_hook=…)`(**同じキーが重複していれば `ParseFailure`**。`json.loads` は重複を黙って最後の値にするため)(例外は `ParseFailure`)→ `Approval.model_validate`(例外は `ParseFailure`)→ `approval.requirement == dir_name` を確認。
+- `parse_approval`: `json.loads(raw, object_pairs_hook=…)`(**同じキーが重複していれば `ParseFailure`**。`json.loads` は重複を黙って最後の値にするため)(`UnicodeDecodeError` を含む解析の例外は、すべて `ParseFailure`)→ `Approval.model_validate`(例外は `ParseFailure`)→ `approval.requirement == dir_name` を確認。
 - `load_approvals`: `repo.list(ref)` を走査し、`^\.specs/(REQ-\d{4}-\d{3,})/approval\.json$` に当たるものだけを読む。
 - `validity`: ①`state != OPEN` なら `Reason("state")` ②`files` のキー集合と、`list(ref)` のうち `.specs/<REQ>/` 直下で `APPROVED_FILE_PATTERN` に当たるファイル名の集合を比べ、差があれば `Reason("set")`(足りない、余分、をそれぞれ) ③各ファイルの `sha256_hex(read(...))` を比べ、違えば `Reason("hash")`(ファイルごと。ファイルが読めなければ同じ種別)。
-- `spec_tags`: `01_req_spec.md` を `utf-8` でデコード(失敗は空集合)。行を走査し、行頭が `- **[`TAG`]` の形で、フェンス(```` ``` ````)の外にあるものから `FEATURE_TAG` に当たるタグを集める。正規表現: `^\s*[-*]\s+\*\*\[(REQ-\d{4}-\d{3,}-F\d{2,})\]`。
+- `spec_tags`: `01_req_spec.md` を `utf-8` でデコード(失敗は `ParseFailure`。空集合にして通さない。ファイルがなければ空集合)。行を走査し、行頭が `- **[`TAG`]` の形で、フェンス(```` ``` ````)の外にあるものから `FEATURE_TAG` に当たるタグを集める。正規表現: `^\s*[-*]\s+\*\*\[(REQ-\d{4}-\d{3,}-F\d{2,})\]`。
 
 ### 3.3 `derive/markers.py`
 ```python
@@ -121,7 +124,7 @@ def test_functions(source: bytes) -> list[TestFunction] | ParseFailure
 ```
 手順: [データ: R7]
 1. `ast.parse(source)`。`SyntaxError` は `ParseFailure`。ソースは `splitlines` した行を保持する。
-2. モジュール直下の文を走査する。`ast.walk` は使わない(ネストした関数を拾うため)。ただし、直下の `if`・`try`・`with` の**本体の中の文**には降りる(pytest は実行後の名前空間から集めるので、`if` の中の `def test_*` も収集される)。関数とクラスの中には降りない。`pytestmark = …` の代入があれば、値が `requirement` の呼び出し、またはそのリスト・タプルのとき、モジュール共通のタグとして集める。 [推論: pytest の収集との整合。レビュー指摘 I-01、L-03]
+2. モジュール直下の文を走査する。`ast.walk` は使わない(ネストした関数を拾うため)。ただし、直下の `if`・`try`・`with`・`for`・`while`・`match` の**本体の中の文**には降りる(pytest は実行後の名前空間から集めるので、`if` の中の `def test_*` も収集される)。関数とクラスの中には降りない。`pytestmark = …` の代入があれば、値が `requirement` の呼び出し、またはそのリスト・タプルのとき、モジュール共通のタグとして集める。 [推論: pytest の収集との整合。レビュー指摘 I-01、L-03]
 3. 直下の `FunctionDef`/`AsyncFunctionDef` で名前が `test` で始まるもの、と、名前が `Test` で始まる `ClassDef` の直下の同様のメソッドを `TestFunction` にする。クラスのデコレータの marker は、そのメソッドに加える。**同じ名前の関数が複数あれば、すべてを別の項目にする**(2 つ目以降の `qualname` に `#2`、`#3` を付ける)。pytest は最後の定義だけを実行するが、検査は全部に対して行う(厳しい側)。
 4. デコレータからタグを取る: `ast.Call` で、`func` が `Attribute(attr="requirement")`(`pytest.mark.requirement`)または `Name("requirement")` のもの。第 1 引数が `ast.Constant` の `str` ならタグ、そうでなければ `has_marker` だけを真にする。
 5. 範囲: `min(デコレータの lineno, def の lineno)` から `end_lineno` までの行を連結して SHA-256。`tags` は、関数自身、クラス、モジュールの marker を合わせた**実効のタグ**。
@@ -156,7 +159,7 @@ def _guarded(path: str, req: str) -> bool          # approval.json か、.specs/
 - 削除、または `old_path` が `approval.json` の改名 → `D.delete`。
 - `head` で `parse_approval` が `ParseFailure` → `D.parse`。
 - `open`: `DELIVERABLES` の各ゲートについて、`design` と `test_spec` が存在し空でないか → `D.a`(ファイルごと)。`validity(repo, "head", approval)` の `set` と `hash` の理由 → `D.b`(理由ごと)。
-- `closed`: `01_req_spec.md` がなければ `D.c`(仕様なし)。`spec_tags(head)` の各タグが、`head` の `tests/**/test_*.py` の `test_functions` のどれかの `tags` に含まれなければ `D.c`(タグごと)。`test_functions` が `ParseFailure` のファイルは、この照合から外す(`T.a` が失敗にする)。 [レビュー指摘 I-02]
+- `closed`: `01_req_spec.md` がなければ `D.c`(仕様なし)。`spec_tags(head)` の各タグが、`head` の `tests/**/test_*.py` の `test_functions` のどれかの `tags` に含まれなければ `D.c`(タグごと)。`spec_tags` が `ParseFailure` なら `D.c`(仕様が読めない)。`test_functions` が `ParseFailure` のファイルは、この照合から外す(`T.a` が失敗にする)。 [レビュー指摘 I-02]
 - 最後に、1 つでも承認ファイルの Change があれば、`head` の全 `approval.json` の状態が `open` の数を数え、2 以上なら `D.d`。
 
 ### 4.3 `checks/t.py`
@@ -192,15 +195,16 @@ class GitRepo:
 - `_git(*args: str) -> bytes`: `subprocess.run(["git", "-C", str(root), "-c", "core.quotepath=off", *args], capture_output=True, check=False)`。終了コードが 0 でなければ `RepoError(標準エラー)`。`FileNotFoundError`(`git` がない)と `OSError` も `RepoError` にする。シェルを使わない。 [レビュー指摘 I-05]
 - 起動時に、`git rev-parse --verify <base>^{commit}` で `base` を確かめる(なければ `RepoError`)。`head` が `worktree` でなければ、同様に確かめる。
 - `read(path, ref)`: `ref` が `base` または `head` がコミットのとき `git show <rev>:<path>`(存在しなければ None。`git cat-file -e` で確認)。`head=worktree` のときは、`list("head")` に含まれるパスだけを読む: シンボリックリンクなら `os.fsencode(os.readlink(path))`、通常のファイルなら内容(バイト列)。含まれなければ None。 [データ: R6、リンクは git の扱いと同じ]
-- `list(ref)`: コミットのとき `git ls-tree -r --name-only -z <rev>`。`worktree` のときは `git ls-files -z -c -o --exclude-standard` から、`git ls-files -z -d`(作業ツリーで削除されたもの)を引き、**昇順に並べる**。 [データ: R6、`ls-files -c -o` は削除済みの追跡ファイルを含み、昇順でもない]
-- `changes()`: `git diff -M --name-status -z <base> <head>`(コミットのとき)または `git diff -M --name-status -z <base>`(`worktree` のとき)を解析する。形式は、状態、NUL、パス、NUL(`R`・`C` は旧パス、NUL、新パス、NUL)。`A` → added、`M`・`T` → modified、`D` → deleted、`R*` → renamed。それ以外の状態(`C*` を含む。`-M` ではコピーは検出されない)が出たら `RepoError("unsupported status")`。 [レビュー指摘 L-01]`worktree` のときは、これに加えて、`git ls-files -z -o --exclude-standard` の未追跡ファイルを `added` として足す。**ステージ前の改名は、`deleted`(旧)と `added`(未追跡の新)の組になる**(これは `Q.pragma` が改名に強い定義で吸収する)。 [データ: R6]
+- サブモジュール(gitlink)は対象外(MVP。`ls-tree` が返しても `read` は `RepoError`)。 [レビュー R2-14]
+- `list(ref)`: コミットのとき `git ls-tree -r --name-only -z <rev>` を**昇順に並べる**(ls-tree の順はフルパス昇順を保証しない)。`worktree` のときは `git ls-files -z -c -o --exclude-standard` から、`git ls-files -z -d`(作業ツリーで削除されたもの)を引き、**昇順に並べる**。 [データ: R6、`ls-files -c -o` は削除済みの追跡ファイルを含み、昇順でもない]
+- `changes()`: `git diff -M --name-status -z <base> <head>`(コミットのとき)または `git diff -M --name-status -z <base>`(`worktree` のとき)を解析する。形式は、状態、NUL、パス、NUL(`R`・`C` は旧パス、NUL、新パス、NUL)。`A` → added(`old_path=None`)、`M`・`T` → modified(`old_path` と `new_path` に**同じパス**)、`D` → deleted(`new_path=None`)、`R*` → renamed(旧、新)。それ以外の状態(`C*` を含む。`-M` ではコピーは検出されない)が出たら `RepoError("unsupported status")`。 [レビュー指摘 L-01]`worktree` のときは、これに加えて、`git ls-files -z -o --exclude-standard` の未追跡ファイルを `added` として足す。**ステージ前の改名は、`deleted`(旧)と `added`(未追跡の新)の組になる**(これは `Q.pragma` が改名に強い定義で吸収する)。 [データ: R6]
 - 結果は、インスタンス内でキャッシュする(1 回の実行の間、作業ツリーは変わらないとみなす)。 [推論]
 
 ### 5.2 `adapters/report.py`
 ```python
-def format_findings(result: CheckResult) -> str       # "<rule> <path>: <message>" を 1 行ずつ。最後に「人間のマージが必要: <理由>」
+def format_findings(result: CheckResult) -> str       # "<rule> <path>: <message>"(`path` が None なら "<rule>: <message>")を 1 行ずつ。最後に「人間のマージが必要: <理由>」
 def findings_json(result: CheckResult) -> str          # {"ok", "findings": [{rule,path,message,hint}], "human_merge": [...]}
-def format_status(repo: Repo, head_label: str) -> str  # 要件ごとの状態、承認の有効/失効の理由、表示用ゲート
+def format_status(repo: Repo, head_label: str) -> str  # 要件ごとの状態、承認の有効/失効の理由、表示用ゲート、いま `src/` を変えてよいか(open が 1 つか)
 def short_status(repo: Repo) -> str                    # 3 行以内。フックの通知用
 ```
 `report` は `derive` を呼ぶ(`checks` は呼ばない)。
@@ -223,7 +227,8 @@ def classify_git(command: str) -> Literal["commit", "push"] | None
 def handle(event: str, payload: dict[str, object], root: Path, repo_factory: Callable[..., Repo]) -> HookOutcome
 def main(event: str) -> NoReturn            # 標準入力を読み、handle を呼び、出力して終了
 ```
-- `classify_git`: `GIT_COMMAND.search(command)`。両方が含まれるときは `commit` を優先する(`git commit && git push`。commit のフックが先に走り、push のときに再び呼ばれる)。
+- `classify_git`: `GIT_COMMAND.finditer(command)` の全一致を集め、`commit` が 1 つでもあれば `commit`、なければ `push`(順序によらない)。両方が含まれるときは `commit` を優先する(`git commit && git push`。commit のフックが先に走り、push のときに再び呼ばれる)。
+- `handle`: ペイロードの不備(`tool_input` や `file_path` がない、型が違う)は `HookOutcome(0)` に正規化し、例外を外に出さない。フックは `GitRepo` を開く前に、`origin/main` がなければ 1 回だけ `git fetch origin main` を試す(失敗は `RepoError`。fail-open)。
 - `handle("pre-tool-use", ...)`: `tool_name` が書き込み系なら、`tool_input` の `file_path`(または `notebook_path`)を `root` からの相対パスにして、`src/` 配下で `valid_open` が 1 つでなければ `short_status` 付きの通知。`Bash` なら `classify_git`。commit は `head=worktree`、push は `head=HEAD` で `run_all`。Finding があれば `HookOutcome(2, stderr=format_findings(...))`。
 - `.specs/` がなければ、通知系は `HookOutcome(0)`。拒否系は検査を実行する(03 §7)。
 - 例外(`RepoError` を含む)は、拒否系では `HookOutcome(0, stderr="gov hook: 検査を実行できませんでした: …(権威は CI)")`、通知系では `HookOutcome(0)`。`except Exception` を使うので、その行に理由のコメントを書く(ruff の `BLE001`)。 [決定の適用: 03 §7]
