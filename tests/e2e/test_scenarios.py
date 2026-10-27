@@ -10,6 +10,7 @@ from jtc_gov.adapters.cli import main
 from jtc_gov.domain.gates import DELIVERABLES
 from tests.integration.test_repo_git import commit, git, root  # noqa: F401
 from tests.support.fake_repo import approval_json, design_files, with_approval
+from tests.support.paths import MACHINERY_PATHS
 
 Files = Mapping[str, bytes]
 
@@ -39,7 +40,13 @@ def make_test_file(tag: str, location: str = "tests/test_a.py") -> dict[str, byt
 
 
 TEST = make_test_file("REQ-2026-010-F01")
+TEST_RENAMED = {
+    "tests/test_a.py": make_test_file("REQ-2026-010-F01")["tests/test_a.py"].replace(
+        b"test_a", b"test_renamed"
+    )
+}
 TEST_EDIT = {"tests/test_a.py": TEST["tests/test_a.py"] + b"# edited\n"}
+TEST_BODY = {"tests/test_a.py": TEST["tests/test_a.py"].replace(b"pass", b"assert True")}
 APPROVED = {**README, **with_approval(REQ)}
 SPEC_PATH = f".specs/{REQ}/01_req_spec.md"
 APPROVAL_PATH = f".specs/{REQ}/approval.json"
@@ -64,10 +71,15 @@ def rule_cases() -> list[object]:
     spec_edit = {**APPROVED, SPEC_PATH: b"- **[REQ-2026-010-F01] x**\nedited\n"}
     set_changed = {**APPROVED, f".specs/{REQ}/05_notes.md": b"n"}
     big_src = {"src/a.py": b"line\n" * 40}
+    closed_base = {**README, **with_approval(REQ, "closed"), **TEST}
+    approved_base = {**README, **with_approval(REQ), **TEST}
     cases = [
         ("L1-E01", README, {**README, **SRC, **TEST}, 1, "K.a"),
         ("L1-E46", README, {**README, **TEST}, 1, "K.a"),
         ("L1-E46-approved", APPROVED, {**APPROVED, **TEST}, 0, ""),
+        ("L1-E46-body-rewrite", closed_base, {**closed_base, **TEST_BODY}, 1, "K.a"),
+        ("L1-E46-function-rename", closed_base, {**closed_base, **TEST_RENAMED}, 1, "K.a"),
+        ("L1-E46-body-rewrite-approved", approved_base, {**approved_base, **TEST_BODY}, 0, ""),
         ("L1-E02", APPROVED, {**APPROVED, **SRC, **TEST}, 0, ""),
         ("L1-E03", stale_spec, {**stale_spec, **SRC, **TEST}, 1, "K.a"),
         (
@@ -144,6 +156,15 @@ def d_cases() -> list[object]:
     }
     swap_head = {**swap_base, **with_approval(OTHER, "open", SPEC_OTHER)}
     second_open = {**APPROVED, **with_approval(OTHER, spec=SPEC_OTHER)}
+    stale_open = {
+        **README,
+        **with_approval(REQ, spec=SPEC2),
+        SPEC_PATH: b"- **[REQ-2026-010-F01] a**\n",
+        **TEST,
+    }
+    stale_closed = {**stale_open, APPROVAL_PATH: with_approval(REQ, "closed")[APPROVAL_PATH]}
+    withdrawn_base = {**README, **with_approval(REQ, "withdrawn"), **TEST}
+    withdrawn_then_closed = {**withdrawn_base, **with_approval(REQ, "closed"), **TEST}
     spec2_open = {**README, **with_approval(REQ, spec=SPEC2), **TEST}
     tag_removed = {**README, **with_approval(REQ, "closed"), **TEST}
     tampered_close = {
@@ -185,6 +206,8 @@ def d_cases() -> list[object]:
         ("L1-E17", APPROVED, {**README, **withdrawn}, 0, ""),
         ("L1-E18", APPROVED, without_approval, 1, "D.delete"),
         ("L1-E47-tag-removed", spec2_open, tag_removed, 1, "D.c"),
+        ("L1-E47-stale-approval", stale_open, stale_closed, 1, "D.c"),
+        ("L1-E47-via-withdrawn", withdrawn_base, withdrawn_then_closed, 1, "D.c"),
         ("L1-E47-design-tampered", spec2_open, tampered_close, 1, "D.c"),
         (
             "L1-E19",
@@ -239,24 +262,6 @@ def test_t_and_q_scenarios(
     scenario: Scenario,
 ) -> None:
     run(root, scenario, monkeypatch)
-
-
-MACHINERY_PATHS = [
-    ".github/workflows/ci.yml",
-    "scripts/gate.sh",
-    "pyproject.toml",
-    "uv.lock",
-    ".pre-commit-config.yaml",
-    ".gitattributes",
-    ".claude/settings.json",
-    ".claude/hooks/h.sh",
-    "conftest.py",
-    "tests/sub/conftest.py",
-    "AGENT.md",
-    "CLAUDE.md",
-    "src/jtc_gov/domain/x.py",
-    "src/jtc_gov/adapters/cli.py",
-]
 
 
 @pytest.mark.requirement("REQ-2026-010-F07")
@@ -390,3 +395,21 @@ def test_stale_branch_is_judged_against_the_merge_base(
     git(root, "checkout", "-q", "topic")
     result = CliRunner().invoke(main, ["check", "--base", "main", "--head", "HEAD"])
     assert result.exit_code == 0, result.output
+
+
+@pytest.mark.requirement("REQ-2026-010-F01")
+def test_stale_branch_that_adds_behavior_is_judged_on_the_latest_approval(
+    root: Path,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """L1-E48: the topic adds src and tests while main has closed the requirement."""
+    monkeypatch.chdir(root)
+    commit(root, {**APPROVED, **TEST}, "base")
+    git(root, "checkout", "-q", "-b", "topic")
+    commit(root, {**APPROVED, **TEST, **SRC, **TEST_BODY}, "topic")
+    git(root, "checkout", "-q", "main")
+    commit(root, {**README, **closed_with_tests()}, "main closes the requirement")
+    git(root, "checkout", "-q", "topic")
+    result = CliRunner().invoke(main, ["check", "--base", "main", "--head", "HEAD"])
+    assert result.exit_code == 1, result.output
+    assert "K.a" in result.output

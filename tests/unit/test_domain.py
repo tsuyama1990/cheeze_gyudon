@@ -5,6 +5,7 @@ from jtc_gov.domain.gates import APPROVED_FILE_PATTERN, DELIVERABLES, GUARDED_PR
 from jtc_gov.domain.ids import requirement_of
 from jtc_gov.domain.machinery import machinery_reason
 from jtc_gov.domain.models import Approval, Change, CheckResult, Finding
+from tests.support.paths import MACHINERY_PATHS
 
 SHA = "a" * 64
 
@@ -100,24 +101,7 @@ def test_gate_patterns() -> None:
 
 
 @pytest.mark.requirement("REQ-2026-010-F07")
-@pytest.mark.parametrize(
-    "path",
-    [
-        ".github/workflows/x.yml",
-        "scripts/gate.sh",
-        "pyproject.toml",
-        "uv.lock",
-        ".pre-commit-config.yaml",
-        ".gitattributes",
-        ".claude/settings.json",
-        ".claude/hooks/a.sh",
-        "conftest.py",
-        "tests/sub/conftest.py",
-        "AGENT.md",
-        "CLAUDE.md",
-        "src/jtc_gov/adapters/cli.py",
-    ],
-)
+@pytest.mark.parametrize("path", MACHINERY_PATHS)
 def test_machinery_hits(path: str) -> None:
     assert machinery_reason(path)
 

@@ -1,6 +1,7 @@
 import difflib
 import json
 import os
+import re
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -9,7 +10,7 @@ from pathlib import Path
 import click
 
 from jtc_gov.adapters import claude_hook
-from jtc_gov.adapters.repo_git import WORKTREE, GitRepo, find_root
+from jtc_gov.adapters.repo_git import DEFAULT_BASE, WORKTREE, GitRepo, find_root
 from jtc_gov.adapters.report import findings_json, format_findings, format_status
 from jtc_gov.checks import run_all
 from jtc_gov.domain.errors import RepoError
@@ -19,7 +20,6 @@ from jtc_gov.domain.repo import Repo
 EXIT_OK = 0
 EXIT_VIOLATION = 1
 EXIT_UNEVALUATED = 2
-DEFAULT_BASE = "origin/main"
 
 
 def run_check(
@@ -126,7 +126,11 @@ def hook_command(event: str) -> None:
 @main.command()
 def init() -> None:
     """フック設定と .gitattributes を作る。既存と違えば差分を出して終了コード 1。"""
-    root = find_root(Path.cwd())
+    try:
+        root = find_root(Path.cwd())
+    except RepoError as e:
+        click.echo(f"E.repo: {e}", err=True)
+        raise SystemExit(EXIT_VIOLATION) from e
     conflict = False
     for rel, content in (
         (SETTINGS_PATH, render_settings()),
@@ -162,6 +166,7 @@ class DoctorItem:
 GATE_SCRIPT = Path("scripts/gate.sh")
 PRE_COMMIT_CONFIG = Path(".pre-commit-config.yaml")
 WORKFLOWS_DIR = Path(".github/workflows")
+YAML_COMMENT = re.compile(r"(?:^|\s)#.*$")
 DUPLICATED_TOOLS = ("ruff", "mypy", "vulture", "pytest", "gate.sh", "gov check")
 
 
@@ -193,9 +198,17 @@ def _settings(root: Path) -> DoctorItem:
     return DoctorItem(f"{SETTINGS_PATH} が gov hook を呼ぶ", ok, "ない、または形式が違う")
 
 
+def _calls_gate(workflow: Path) -> bool:
+    try:
+        lines = workflow.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return False
+    return any(GATE_SCRIPT.as_posix() in YAML_COMMENT.sub("", line) for line in lines)
+
+
 def _ci_calls_gate(root: Path) -> DoctorItem:
-    workflows = sorted((root / WORKFLOWS_DIR).glob("*.yml"))
-    ok = any(GATE_SCRIPT.as_posix() in w.read_text(encoding="utf-8") for w in workflows)
+    workflows = [*(root / WORKFLOWS_DIR).glob("*.yml"), *(root / WORKFLOWS_DIR).glob("*.yaml")]
+    ok = any(_calls_gate(w) for w in workflows)
     return DoctorItem(f"CI のワークフローが {GATE_SCRIPT} を呼ぶ", ok, "呼んでいない")
 
 

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal, NoReturn
 
-from jtc_gov.adapters.repo_git import WORKTREE, GitRepo
+from jtc_gov.adapters.repo_git import DEFAULT_BASE, WORKTREE, GitRepo
 from jtc_gov.adapters.report import format_findings, short_status
 from jtc_gov.checks import run_all
 from jtc_gov.derive.approvals import valid_open
@@ -21,7 +21,6 @@ GIT_COMMAND: Final = re.compile(
 EVENTS: Final = ("pre-tool-use", "session-start", "user-prompt-submit")
 WRITE_TOOLS: Final = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit"})
 REJECTING_RULES: Final = ("K.", "D.")
-BASE: Final = "origin/main"
 HEAD_COMMIT: Final = "HEAD"
 FETCH_TIMEOUT_SECONDS: Final = 60
 EXIT_REJECT: Final = 2
@@ -114,7 +113,7 @@ def handle(
 
 def open_repo(root: Path, head: str) -> Repo:
     try:
-        return GitRepo(root, BASE, head)
+        return GitRepo(root, DEFAULT_BASE, head)
     except RepoError:
         done = subprocess.run(  # noqa: S603
             ["git", "-C", str(root), "fetch", "origin", "main"],  # noqa: S607
@@ -124,7 +123,7 @@ def open_repo(root: Path, head: str) -> Repo:
         )
         if done.returncode != 0:
             raise
-        return GitRepo(root, BASE, head)
+        return GitRepo(root, DEFAULT_BASE, head)
 
 
 def main(event: str) -> NoReturn:

@@ -7,7 +7,7 @@ from jtc_gov.derive.approvals import (
     valid_open,
     validity,
 )
-from jtc_gov.derive.changes import added_test_functions, related_requirements
+from jtc_gov.derive.changes import changed_test_functions, related_requirements
 from jtc_gov.derive.gates import display_gate
 from jtc_gov.derive.hashing import sha256_hex
 from jtc_gov.derive.markers import TestFunction
@@ -198,9 +198,9 @@ class TestC:
     nine = "REQ-2026-010-F09"
     assert by["test_literal"].tags == (nine, "A")
     assert by["test_multi"].tags == (nine, "B", "C")
-    assert by["test_var"].has_marker
+    assert by["test_var"].dynamic
     assert by["test_var"].tags == (nine,)
-    assert by["test_noarg"].has_marker
+    assert by["test_noarg"].dynamic
     assert by["test_other"].tags == (nine,)
     assert by["TestC.test_m"].tags == (nine, "K")
 
@@ -209,7 +209,7 @@ class TestC:
 def test_test_functions_single_pytestmark() -> None:
     funcs = _funcs('pytestmark = pytest.mark.requirement("T")\ndef test_a(): pass\n')
     assert funcs[0].tags == ("T",)
-    assert not _funcs("def test_a(): pass")[0].has_marker
+    assert not _funcs("def test_a(): pass")[0].dynamic
 
 
 @pytest.mark.requirement("REQ-2026-010-F01")
@@ -317,21 +317,24 @@ def test_approval_path_rejects_trailing_newline() -> None:
 
 
 @pytest.mark.requirement("REQ-2026-010-F01")
-def test_added_test_functions() -> None:
+def test_changed_test_functions() -> None:
+    """L3-U49"""
     p = "tests/test_x.py"
+    two = _test_src(T) + b"\n\n" + _test_src(T).replace(b"test_a", b"test_b")
 
-    def added(
+    def changed(
         base: dict[str, bytes], head: dict[str, bytes], renames: dict[str, str] | None = None
     ) -> bool:
         repo = FakeRepo(base, head, renames)
-        return added_test_functions(repo, repo.changes())
+        return changed_test_functions(repo, repo.changes())
 
-    assert added({}, {p: _test_src(T)})
-    assert added(
-        {p: _test_src(T)}, {p: _test_src(T) + b"\n\n" + _test_src(T).replace(b"test_a", b"test_b")}
-    )
-    assert not added({p: _test_src(T)}, {p: _test_src(T, "assert 1")})
-    assert not added({p: _test_src(T)}, {})
-    assert not added({p: _test_src(T)}, {"tests/test_y.py": _test_src(T)}, {p: "tests/test_y.py"})
-    assert not added({}, {p: b"def (:"})
-    assert not added({}, {"src/a.py": b"x = 1\n"})
+    assert changed({}, {p: _test_src(T)})
+    assert changed({p: _test_src(T)}, {p: two})
+    assert changed({p: _test_src(T)}, {p: _test_src(T, "assert 1")})
+    assert changed({p: _test_src(T)}, {p: _test_src("REQ-2026-001-F01")})
+    assert not changed({p: two}, {p: _test_src(T)})
+    assert not changed({p: _test_src(T)}, {})
+    assert not changed({p: _test_src(T)}, {"tests/test_y.py": _test_src(T)}, {p: "tests/test_y.py"})
+    assert changed({p: _test_src(T)}, {p: _test_src(T).replace(b"test_a", b"test_renamed")})
+    assert not changed({}, {p: b"def (:"})
+    assert not changed({}, {"src/a.py": b"x = 1\n"})
