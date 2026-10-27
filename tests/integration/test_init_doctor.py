@@ -25,8 +25,16 @@ def test_rendered_files() -> None:
     hooks = json.loads(render_settings())["hooks"]
     assert set(hooks) == {"PreToolUse", "SessionStart", "UserPromptSubmit"}
     commands = [h["command"] for group in hooks.values() for entry in group for h in entry["hooks"]]
-    assert all("gov hook" in c for c in commands)
+    assert all(c.startswith('"$CLAUDE_PROJECT_DIR"/.venv/bin/gov hook') for c in commands)
     assert ".specs/** text eol=lf" in render_gitattributes()
+    on_path = [
+        h["command"]
+        for group in json.loads(render_settings("gov"))["hooks"].values()
+        for entry in group
+        for h in entry["hooks"]
+    ]
+    assert on_path
+    assert all(c.startswith("gov hook ") for c in on_path)
 
 
 @pytest.mark.requirement("REQ-2026-010-F05")
@@ -245,3 +253,21 @@ def test_doctor_reports_a_missing_origin_main(healthy: Path) -> None:
     found = failures(CliRunner().invoke(main, ["doctor"]).output)
     assert len(found) == 1
     assert "origin/main" in found[0]
+
+
+@pytest.mark.requirement("REQ-2026-010-F05")
+@pytest.mark.spec("L2-I29")
+def test_init_with_a_custom_bin_uses_it_and_never_overwrites_a_different_one(
+    root: Path,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(root)
+    runner = CliRunner()
+    assert runner.invoke(main, ["init", "--bin", "gov"]).exit_code == 0
+    written = (root / ".claude" / "settings.json").read_text()
+    assert written == render_settings("gov")
+    assert ".venv" not in written
+    assert runner.invoke(main, ["init", "--bin", "gov"]).output == ""
+    different = runner.invoke(main, ["init"])
+    assert different.exit_code == 1
+    assert (root / ".claude" / "settings.json").read_text() == written

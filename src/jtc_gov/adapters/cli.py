@@ -89,25 +89,25 @@ def status(base: str, head: str) -> None:
 SETTINGS_PATH = Path(".claude/settings.json")
 GITATTRIBUTES_PATH = Path(".gitattributes")
 GITATTRIBUTES = ".specs/** text eol=lf\n"
-HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.venv/bin/gov hook'
+DEFAULT_HOOK_BIN = '"$CLAUDE_PROJECT_DIR"/.venv/bin/gov'
 WRITE_MATCHER = "|".join(sorted(claude_hook.WRITE_TOOLS))
 
 
-def _hook_entry(event: str, matcher: str | None = None) -> dict[str, object]:
+def _hook_entry(command: str, event: str, matcher: str | None = None) -> dict[str, object]:
     entry: dict[str, object] = {
-        "hooks": [{"type": "command", "command": f"{HOOK_COMMAND} {event}"}]
+        "hooks": [{"type": "command", "command": f"{command} hook {event}"}]
     }
     return {"matcher": matcher, **entry} if matcher else entry
 
 
-def render_settings() -> str:
+def render_settings(command: str = DEFAULT_HOOK_BIN) -> str:
     hooks = {
         "PreToolUse": [
-            _hook_entry("pre-tool-use", WRITE_MATCHER),
-            _hook_entry("pre-tool-use", "Bash"),
+            _hook_entry(command, "pre-tool-use", WRITE_MATCHER),
+            _hook_entry(command, "pre-tool-use", "Bash"),
         ],
-        "SessionStart": [_hook_entry("session-start")],
-        "UserPromptSubmit": [_hook_entry("user-prompt-submit")],
+        "SessionStart": [_hook_entry(command, "session-start")],
+        "UserPromptSubmit": [_hook_entry(command, "user-prompt-submit")],
     }
     return json.dumps({"hooks": hooks}, indent=2) + "\n"
 
@@ -124,7 +124,8 @@ def hook_command(event: str) -> None:
 
 
 @main.command()
-def init() -> None:
+@click.option("--bin", "hook_bin", default=DEFAULT_HOOK_BIN, show_default=True)
+def init(hook_bin: str) -> None:
     """フック設定と .gitattributes を作る。既存と違えば差分を出して終了コード 1。"""
     try:
         root = find_root(Path.cwd())
@@ -133,7 +134,7 @@ def init() -> None:
         raise SystemExit(EXIT_VIOLATION) from e
     conflict = False
     for rel, content in (
-        (SETTINGS_PATH, render_settings()),
+        (SETTINGS_PATH, render_settings(hook_bin)),
         (GITATTRIBUTES_PATH, render_gitattributes()),
     ):
         target = root / rel
