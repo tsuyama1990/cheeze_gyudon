@@ -116,7 +116,7 @@ def spec_tags(repo: Repo, ref: Ref, req: str) -> set[str] | ParseFailure
 class TestFunction:
     qualname: str                  # "test_a" または "TestK.test_m"
     tags: tuple[str, ...]          # requirement marker の引数(リテラルのみ)。なければ空
-    has_marker: bool               # requirement marker が(引数がリテラルでないものを含めて)1 つでもあるか
+    dynamic: bool                  # 第 1 引数がリテラルの str でない requirement marker が 1 つでもあるか
     source_sha: str                # デコレータの最初の行から end_lineno までのソースの SHA-256
     lineno: int
 
@@ -126,7 +126,7 @@ def test_functions(source: bytes) -> list[TestFunction] | ParseFailure
 1. `ast.parse(source)`。`SyntaxError` は `ParseFailure`。ソースは `splitlines` した行を保持する。
 2. モジュール直下の文を走査する。`ast.walk` は使わない(ネストした関数を拾うため)。ただし、直下の `if`・`try`・`with`・`for`・`while`・`match` の**本体の中の文**には降りる(pytest は実行後の名前空間から集めるので、`if` の中の `def test_*` も収集される)。関数とクラスの中には降りない。`pytestmark = …` の代入があれば、値が `requirement` の呼び出し、またはそのリスト・タプルのとき、モジュール共通のタグとして集める。 [推論: pytest の収集との整合。レビュー指摘 I-01、L-03]
 3. 直下の `FunctionDef`/`AsyncFunctionDef` で名前が `test_` で始まるもの、と、名前が `Test` で始まる `ClassDef` の直下の同様のメソッドを `TestFunction` にする。クラスのデコレータの marker は、そのメソッドに加える。**同じ名前の関数が複数あれば、すべてを別の項目にする**(2 つ目以降の `qualname` に `#2`、`#3` を付ける)。pytest は最後の定義だけを実行するが、検査は全部に対して行う(厳しい側)。
-4. デコレータからタグを取る: `ast.Call` で、`func` が `Attribute(attr="requirement")`(`pytest.mark.requirement`)または `Name("requirement")` のもの。第 1 引数が `ast.Constant` の `str` ならタグ、そうでなければ `has_marker` だけを真にする。
+4. デコレータからタグを取る: `ast.Call` で、`func` が `Attribute(attr="requirement")`(`pytest.mark.requirement`)または `Name("requirement")` のもの。第 1 引数が `ast.Constant` の `str` ならタグ、そうでなければ `dynamic` を真にする(他にリテラルのタグがあっても残る)。
 5. 範囲: `min(デコレータの lineno, def の lineno)` から `end_lineno` までの行を連結して SHA-256。`tags` は、関数自身、クラス、モジュールの marker を合わせた**実効のタグ**。
 
 **収集の限界(既知。推論)**: 次は pytest が収集するが、`test_functions` は拾わない。基底クラス(`Test` で始まらないもの)から継承した `test_*`、入れ子の `Test*` クラス、`test_alias = test_plain` のような別名。これらにある marker のないテストは `T.a` を通り、変更は `K.c` に出ない。協調的なエージェントが通常は書かない形なので、MVP では受け入れる(backlog B-13)。`pytestmark` は、モジュール直下の最後の代入だけを使う。 [レビュー F3、F4]
@@ -134,9 +134,9 @@ def test_functions(source: bytes) -> list[TestFunction] | ParseFailure
 ### 3.4 `derive/changes.py`
 ```python
 def related_requirements(repo: Repo, changes: Sequence[Change]) -> set[str]
-def added_test_functions(repo: Repo, changes: Sequence[Change]) -> bool
+def changed_test_functions(repo: Repo, changes: Sequence[Change]) -> bool
 ```
-`added_test_functions`: `tests/` 配下の `test_*.py` に当たる Change について、`new_path` の関数のうち、`old_path`(`added` なら空)に同じ `qualname` がないものがあれば真(改名は旧パスと突き合わせるので除かれる)。解析失敗は無視する。 [レビュー R1]
+`changed_test_functions`: `tests/` 配下の `test_*.py` に当たる Change について、`new_path` の関数のうち、`old_path`(`added` なら空)に同じ `qualname` がない、または `source_sha`・実効の `tags` が違うものがあれば真。ファイルの改名は旧パスと突き合わせるので除かれる。関数の改名は追加として数える。削除だけは偽(弱体化の検出は MVP 外、B-03)。解析失敗は無視する。 [レビュー R1、R2-01]
 1. `changes` の各パスが `^\.specs/(REQ-\d{4}-\d{3,})/` に当たれば、その要件 ID を加える。
 2. `tests/` 配下の `test_*.py` に当たる Change について、`old_path` を `base` で、`new_path` を `head` で読み、`test_functions` を取る(解析失敗は無視)。
 3. 関数を `qualname` で突き合わせ、「片方にしかない」「`source_sha` が違う」「**実効の `tags` が違う**」のいずれかに当たる関数を変更とみなし、`base` と `head` の両方の `tags` を、`FEATURE_TAG` に一致するものだけ `requirement_of` で要件 ID にして加える。クラスのデコレータやモジュールの `pytestmark` の付け替えは、関数のソースを変えないが、実効の `tags` を変えるので検出される。改名は、旧パスと新パスの関数を `qualname` で突き合わせる。 [レビュー指摘 F-01]
@@ -158,18 +158,18 @@ def _guarded(path: str, req: str) -> bool          # approval.json か、.specs/
 ```
 `Finding` の `rule` は `K.a`/`K.b`/`K.c`。`K.c` の `message` に要件 ID、`hint` に「承認された要件は <req>」。
 
-K の適用条件は「(`src/` と、`tests/` または `.specs/` の変更)または `added_test_functions`」。
+K の適用条件は「(`src/` と、`tests/` または `.specs/` の変更)または `changed_test_functions`」。
 
 ### 4.2 `checks/d.py`
 `approval.json` に当たる Change を列挙し、03 §4.2 の表を実装する。
 - 削除、または `old_path` が `approval.json` の改名 → `D.delete`。
 - `head` で `parse_approval` が `ParseFailure` → `D.parse`。
 - `open`: `DELIVERABLES` の各ゲートについて、`design` と `test_spec` が存在し空でないか → `D.a`(ファイルごと)。`validity(repo, "head", approval)` の `set` と `hash` の理由 → `D.b`(理由ごと)。
-- `closed`: `base` に同じ要件の `open` の承認があるとき(完了の遷移)は、`0[1-5]_*` を `base` と `head` で比べ、違うものごとに `D.c`、タグは `spec_tags(base)` から取る。ないとき(履歴の要件)は `spec_tags(head)`。`01_req_spec.md` がなければ `D.c`(仕様なし)。取ったタグの各タグが、`head` の `tests/**/test_*.py` の `test_functions` のどれかの `tags` に含まれなければ `D.c`(タグごと)。`spec_tags` が `ParseFailure` なら `D.c`(仕様が読めない)。`test_functions` が `ParseFailure` のファイルは、この照合から外す(`T.a` が失敗にする)。 [レビュー指摘 I-02]
+- `closed`: `base` に同じ要件の承認があるとき: `withdrawn` なら `D.c`(直接閉じられない)、`open` で `validity(base)` が空でなければ `D.c`(失効)。有効な `open` のとき(完了の遷移)は、`0[1-5]_*` を `base` と `head` で比べ、違うものごとに `D.c`、タグは `spec_tags(base)` から取る。承認がない(履歴の要件)、または既に `closed` のときは `spec_tags(head)`。`01_req_spec.md` がなければ `D.c`(仕様なし)。取ったタグの各タグが、`head` の `tests/**/test_*.py` の `test_functions` のどれかの `tags` に含まれなければ `D.c`(タグごと)。`spec_tags` が `ParseFailure` なら `D.c`(仕様が読めない)。`test_functions` が `ParseFailure` のファイルは、この照合から外す(`T.a` が失敗にする)。 [レビュー指摘 I-02]
 - 最後に、1 つでも承認ファイルの Change があれば、`head` の全 `approval.json` の状態が `open` の数を数え、2 以上なら `D.d`。
 
 ### 4.3 `checks/t.py`
-`head` の `list` から、`tests/` 配下でない `test_*.py` を `T.c`、`tests/` 配下の `test_*.py` を読み、`test_functions` を取る。`ParseFailure` は `T.a`(ファイル)。各関数について: ①`tags` のうち `FEATURE_TAG` に**一致しないもの**ごとに `T.a`(形式不正)②`FEATURE_TAG` に一致するものが 1 つもなければ `T.a`(理由は、marker なし / 引数がリテラルでない(`has_marker` だけ真)/ 形式不正のみ、のいずれか)③`FEATURE_TAG` に一致するタグだけについて、要件の仕様(`01_req_spec.md`)が `head` になければ、またはタグが `spec_tags` に含まれなければ `T.b`。`requirement_of` には、一致したタグだけを渡す(`ValueError` で落ちない)。 [レビュー指摘 I-03]
+`head` の `list` から、`tests/` 配下でない `test_*.py` を `T.c`、`tests/` 配下の `test_*.py` を読み、`test_functions` を取る。`ParseFailure` は `T.a`(ファイル)。各関数について: ①`tags` のうち `FEATURE_TAG` に**一致しないもの**ごとに `T.a`(形式不正)②`dynamic` が真なら、他に正しいタグがあっても `T.a`(リテラルでない引数)③`FEATURE_TAG` に一致するものが 1 つもなければ `T.a`(marker なし / 形式不正のみ)④`FEATURE_TAG` に一致するタグだけについて、要件の仕様(`01_req_spec.md`)が `head` になければ、またはタグが `spec_tags` に含まれなければ `T.b`。`requirement_of` には、一致したタグだけを渡す(`ValueError` で落ちない)。 [レビュー指摘 I-03]
 
 ### 4.4 `checks/pragma.py`
 03 §4.5 のとおり。正規化 = `line.strip()`。`# pragma: no cover` の判定は、行に部分文字列 `pragma: no cover` を含むか。ファイルは `src/` 配下の `.py` で、`utf-8` でデコードできなければ飛ばす。超過した分の位置は、`head` のファイルの該当行の番号(同じ行が複数あるときは、後ろから)を `path:lineno` として返す。
@@ -204,7 +204,7 @@ class GitRepo:
 - サブモジュール(gitlink)は対象外(MVP。`ls-tree` が返しても `read` は `RepoError`)。 [レビュー R2-14]
 - `list(ref)`: コミットのとき `git ls-tree -r --name-only -z <rev>` を**昇順に並べる**(ls-tree の順はフルパス昇順を保証しない)。`worktree` のときは `git ls-files -z -c -o --exclude-standard` から、`git ls-files -z -d`(作業ツリーで削除されたもの)を引き、**昇順に並べる**。 [データ: R6、`ls-files -c -o` は削除済みの追跡ファイルを含み、昇順でもない]
 - `changes()`: `git diff -M --name-status -z <base> <head>`(コミットのとき)または `git diff -M --name-status -z <base>`(`worktree` のとき)を解析する。形式は、状態、NUL、パス、NUL(`R`・`C` は旧パス、NUL、新パス、NUL)。`A` → added(`old_path=None`)、`M`・`T` → modified(`old_path` と `new_path` に**同じパス**)、`D` → deleted(`new_path=None`)、`R*` → renamed(旧、新)。それ以外の状態(`C*` を含む。`-M` ではコピーは検出されない)が出たら `RepoError("unsupported status")`。 [レビュー指摘 L-01]`worktree` のときは、これに加えて、`git ls-files -z -o --exclude-standard` の未追跡ファイルを `added` として足す。**ステージ前の改名は、`deleted`(旧)と `added`(未追跡の新)の組になる**(これは `Q.pragma` が改名に強い定義で吸収する)。ただし `related_requirements` は、移動したテストファイルの関数をすべて変更とみなすので、`git add` 前は K.c が出て、追跡された改名(CI)では出ない場合がある(偽陽性側。MVP では受け入れる) [レビュー F9]。 [データ: R6]
-- **基準**: 起動時に `git merge-base <base> <head>`(`worktree` のときは `HEAD`)を求め、以後の `base` はそのコミットとする(`read`、`list`、`changes`)。祖先でない `base`(`main` が先に進んだ分岐)で、`main` 側の変更を逆向きの変更に数えないため。共通の祖先がなければ `RepoError`。 [レビュー R4]
+- **基準**: 起動時に `git merge-base <base> <head>`(`worktree` のときは `HEAD`)を求め、`changes` の差分の基準にする。祖先でない `base`(`main` が先に進んだ分岐)で、`main` 側の変更を逆向きの変更に数えないため。`read`・`list` の `base` は指定された先端のままにする(承認を CI のマージ結果と同じく最新の `main` で判定するため)。共通の祖先がなければ `RepoError`。 [レビュー R4、R2-06]
 - キャッシュしない(速度の最適化はしない。DEC-014)。
 
 ### 5.2 `adapters/report.py`
@@ -221,7 +221,7 @@ def short_status(repo: Repo) -> str                    # 3 行以内。フック
 - `_open_repo(base, head) -> GitRepo`: `Path.cwd()` から `git rev-parse --show-toplevel` でルートを求める。
 - `check`: 純粋に近い関数 `run_check(open_repo: Callable[[], Repo], as_json: bool) -> tuple[int, str]` に委ねる(単体テストできるように)。`open_repo()` と `run_all` を実行し、`RepoError` は `Finding(rule="E.repo", message=…)` にして出力し終了コード 2、**`gov` 自身の想定外の例外も `Finding(rule="E.internal")` にして終了コード 2**(traceback は出さない。`--debug` なら出す)、`result.ok` でなければ 1、それ以外は 0。出力は `format_findings` または `findings_json`。`E.repo` と `E.internal` は評価できなかったことを表す。 [レビュー指摘 I-05。03 §9 の「`E.repo`、終了コード 2」の実装]
 - `init`: `.claude/settings.json` と `.gitattributes` の内容を生成する関数 `render_settings() -> str`、`render_gitattributes() -> str`(純粋)を呼び、書き込む。既存ファイルと内容が違えば、書かずに差分を出して終了コード 1。同じなら何もしない。
-- `doctor`: 検査を関数の一覧 `CHECKS: list[Callable[[Path], DoctorItem]]` として持つ。項目は 03 §6 と spirals.md §2。`gate.sh` が存在し実行可能、`.pre-commit-config.yaml` が衛生フックだけ(ruff、mypy、vulture、pytest、`gate.sh`、`gov check` を持たない)、`.claude/settings.json` が入れ子形式で `gov hook` を呼ぶ、`.github/workflows/*.yml` のいずれかが `scripts/gate.sh` を呼ぶ、`origin/main` が解決できる。
+- `doctor`: 検査を関数の一覧 `CHECKS: list[Callable[[Path], DoctorItem]]` として持つ。項目は 03 §6 と spirals.md §2。`gate.sh` が存在し実行可能、`.pre-commit-config.yaml` が衛生フックだけ(ruff、mypy、vulture、pytest、`gate.sh`、`gov check` を持たない)、`.claude/settings.json` が入れ子形式で `gov hook` を呼ぶ、`.github/workflows/` の `*.yml`・`*.yaml` のいずれかが(コメント行を除いて)`scripts/gate.sh` を呼ぶ(読めないファイルは呼んでいないものとして数える)、`origin/main` が解決できる。
 
 ### 5.4 `adapters/claude_hook.py`
 ```python
