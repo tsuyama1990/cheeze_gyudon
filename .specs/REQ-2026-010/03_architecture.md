@@ -25,7 +25,7 @@ L1 の記述と、L2 で分かったことが食い違った箇所。二重管�
 
 ## 1. 型(`domain`)
 
-`Approval`(外部の JSON を読む型)だけが Pydantic v2(`frozen`、`extra="forbid"`)。JSON スキーマはこの型から生成する。他の型は標準の `frozen` データクラス(YAGNI。L3 §1)。 [決定: DEC-003、DEC-028。L3 の結論による修正]
+`Approval`(外部の JSON を読む型)だけが Pydantic v2(`frozen`、`extra="forbid"`)。厳密な検証(未知のキー、型の不一致、重複キーの拒否)をこの型で行う。他の型は標準の `frozen` データクラス(YAGNI。L3 §1)。 [決定: DEC-003、DEC-028。L3 の結論による修正]
 
 | 型 | フィールドと制約 |
 |---|---|
@@ -70,7 +70,7 @@ class Repo(Protocol):
 | パス | リポジトリのルートからの相対パス。区切りは `/`。`..` を含まない。大文字小文字は区別する |
 | `read` | `ref` の時点の追跡ファイルの内容(バイト列)。存在しなければ None。シンボリックリンクは追わず、リンク先のパス文字列を内容とする(git の扱い) |
 | `list` | `ref` の時点のファイルのパス一覧。昇順。`head` が作業ツリーのときは、追跡済みのファイルと、無視されていない未追跡のファイル(エージェントが作って `git add` していない新規ファイル)。作業ツリーで削除されたファイルは含まない |
-| `changes` | `base` から `head` への変更。改名は git の検出(`-M`)による。改名は旧パスと新パスの両方を持つ。ファイルモードだけの変更は `modified`。`head` が作業ツリーのときは、無視されていない未追跡のファイルを `added` として含む(`git add` の前に走るフックが、新規ファイルを見落とさないため) |
+| `changes` | `base` と `head` の merge-base から `head` への変更(`base` が `head` の祖先でないとき、`base` 側だけにある変更を数えない)。`base` の `read`・`list` も同じ merge-base の内容を返す。改名は git の検出(`-M`)による。改名は旧パスと新パスの両方を持つ。ファイルモードだけの変更は `modified`。`head` が作業ツリーのときは、無視されていない未追跡のファイルを `added` として含む(`git add` の前に走るフックが、新規ファイルを見落とさないため) |
 | エラー | `base` が見つからない、git の失敗は `RepoError(message)` を送出する。`derive` と `checks` は捕まえない。入口が `Finding(rule="E.repo")` に変えて、失敗として扱う(§9) |
 
 実装は `adapters/repo_git`(1 つの実装で、`head` の指し方を切り替える)と、テスト用の `FakeRepo`(`tests/` に置く)。
@@ -101,7 +101,7 @@ class Repo(Protocol):
 | `display_gate(repo, ref, req)` | ペア(1.1)がそろっていない最小のゲート。すべてそろっていれば 5(表示用。CI の合否に使わない) |
 
 ### 3.1 marker の読み取り
-- テスト関数 = `tests/**` の `test_*.py` のうち、モジュール直下の `test*` 関数と、`Test*` クラス内の `test*` メソッド(`pyproject.toml` の pytest 設定に合わせる)。 [データ: 現行の設定は `python_files = ["test_*.py"]`]
+- テスト関数 = `tests/**` の `test_*.py` のうち、モジュール直下の `test_*` 関数と、`Test*` クラス内の `test_*` メソッド(`pyproject.toml` の pytest 設定に合わせる)。 [データ: 現行の設定は `python_files = ["test_*.py"]`]
 - marker = デコレータ `@pytest.mark.requirement("TAG")` または `@requirement("TAG")`。クラスのデコレータは、そのクラスのメソッドに適用される。モジュールの `pytestmark = pytest.mark.requirement("TAG")` は、そのファイルの全テストに適用される。引数が文字列リテラルでないものは、タグなしとして扱う。
 - 1 つの関数に複数の marker があってよい。
 - `markers(source)` は、関数ごとに(名前、marker のタグの一覧、ソースの SHA-256)を返す。ソースは、関数のデコレータ行から末尾まで。
@@ -117,7 +117,8 @@ class Repo(Protocol):
 ```
 src_changed = いずれかの Change の paths() に "src/" で始まるものがある
 aux_changed = いずれかの Change の paths() が "tests/" または ".specs/" で始まる
-if not (src_changed and aux_changed): return []
+new_tests = added_test_functions(repo, changes)      # base のファイルにない test 関数(改名は除く)
+if not ((src_changed and aux_changed) or new_tests): return []
 
 opens = valid_open(repo, "base")
 if len(opens) != 1: Finding(K.a, "有効な承認が {n} 個") ; return
@@ -129,6 +130,7 @@ for p in すべての Change の paths():
 extra = related_requirements(repo, changes) - {req}
 for r in extra: Finding(K.c, "要件 {r} は承認された要件の外")
 ```
+- 新しいテスト関数だけの PR(`src/` を変えない)も対象にする。テストを先に入れ、`src/` を後の PR で入れる分割で迂回できるため(スキップや `importorskip` で先に書ける)。 [レビュー R1]
 - `src/` の判定は旧パスと新パスの両方を見る(改名)。 [データ: 改名の実験]
 - K.b は、マニフェストにない `0[1-5]_*` を足す場合も含む(承認の集合を、実装と同じ PR で広げられないようにする)。
 - 「ちょうど 1 つ」は、`open` の承認が 2 つ以上ある場合も K.a で失敗する(D.d が防ぐ状態だが、`base` が壊れていても検出する)。
@@ -144,7 +146,8 @@ for r in extra: Finding(K.c, "要件 {r} は承認された要件の外")
 | 状態 `open`: (b) `validity` の理由のうち、集合の不一致とハッシュの不一致 | `D.b`(理由ごと) |
 | (状態を問わず、変更された `approval.json` が 1 つでもあるとき)(d) `head` の全 `approval.json` のうち、状態が `open` のものが 2 つ以上 | `D.d` |
 | 状態 `closed`: (c) `01_req_spec.md` が `head` にない | `D.c`(仕様なし) |
-| 状態 `closed`: (c) `spec_tags(head)` の各タグに、`head` のテスト関数の marker が 1 つもない | `D.c`(タグごと) |
+| 状態 `closed`: (c) タグの元の仕様の内容: `base` に同じ要件の `open` の承認があるときは `base` の仕様、ないとき(履歴の要件を閉じる)は `head` の仕様。その `spec_tags` の各タグに、`head` のテスト関数の marker が 1 つもない | `D.c`(タグごと) |
+| 状態 `closed`: `base` に同じ要件の `open` の承認があり、`.specs/<REQ>/0[1-5]_*` のどれかが `base` と `head` で違う(追加、変更、削除) | `D.c`(ファイルごと。承認済みの設計を、完了の PR で変更できない) |
 | 状態 `withdrawn` | なし |
 
 `D.d` の数え方: `head` の `list` から `approval.json` を全部読み、状態が `open` のものが 2 つ以上なら失敗(有効かどうかは問わない)。
@@ -191,7 +194,7 @@ for t in head_count: if head_count[t] > base_count.get(t, 0): Finding(Q.pragma, 
 | 2 | `mypy` | `pyproject.toml` |
 | 3 | `vulture` | `pyproject.toml` |
 | 4 | `pytest`(分岐カバレッジ。閾値を満たさなければ失敗。`coverage.xml` を出力) | `pyproject.toml` の `fail_under` |
-| 5 | `diff-cover coverage.xml --compare-branch "$GATE_BASE" --include-untracked --fail-under "$DIFF_COVERAGE_FAIL_UNDER"` | `pyproject.toml` の `[tool.jtc_gov]` の `diff_coverage_fail_under` |
+| 5 | `diff-cover coverage.xml --compare-branch "$GATE_BASE" --include-untracked --fail-under "$THRESHOLD"` | `pyproject.toml` の `[tool.coverage.report]` の `fail_under`(`gate.sh` が読んで `--fail-under` に渡す。DEC-038) |
 | 6 | `gov check --base "$GATE_BASE" --head worktree`(K・D・T・Q.pragma) | — |
 | 7 | pre-commit の衛生フック(`pre-commit run --all-files`) | `.pre-commit-config.yaml` |
 
@@ -213,7 +216,7 @@ for t in head_count: if head_count[t] > base_count.get(t, 0): Finding(Q.pragma, 
 | `gov check [--base REF] [--head worktree\|HEAD\|REF] [--json]` | K・D・T と、Q の内容検査(Q.pragma)を実行する。DEC-029 の「`check`(K・D・T・Q)」の Q は、この内容検査を指す。Q のツール(lint、型、テスト、カバレッジ)は `gate.sh` が実行する。既定は `--base origin/main --head worktree`。出力は 1 行 1 Finding: `<rule> <path>: <message>`。最後に「人間のマージが必要: <理由>」を出す。`--json` は `{"ok", "findings", "human_merge"}` | 0: 通過 / 1: 規則違反あり / 2: 評価できない(`RepoError` など) |
 | `gov status [--head ...]` | 要件ごとに、状態、承認の有効/失効(理由つき)、表示用の現在ゲート、「テストまたは仕様も変える `src/` の変更が可能か」を表示する。`state.json` を書かない | 0 / 2 |
 | `gov init` | `.claude/settings.json`(入れ子形式のフック設定)と、`.gitattributes`(`.specs/** text eol=lf`)を作る。既存のファイルは上書きせず、差分を表示して終了コード 1 | 0 / 1 |
-| `gov doctor` | 前提の検査(spirals.md §2 の preflight のうち機械で確かめられるもの)を実行する | 0 / 1 |
+| `gov doctor` | 前提の検査(spirals.md §2 の preflight のうち機械で確かめられるもの)を実行する。項目: `gate.sh` が実行可能、pre-commit が衛生フックだけ、`.claude/settings.json` が `gov hook` を呼ぶ、CI のワークフローが `scripts/gate.sh` を呼ぶ、`origin/main` が解決できる。全体設定(Stop フック、マージスクリプト)は、リポジトリの外なので検査しない | 0 / 1 |
 | `gov hook <event>` | フックの入口(§7)。`event` は `pre-tool-use`、`session-start`、`user-prompt-submit` | §7 |
 
 廃止: `gate-check`、`escalate`、`draft-decision`、`redteam`、`review-status`、`audit-push`、`format-pr-comment`、`format-pr-summary`、`ci-verify`。
@@ -286,8 +289,8 @@ for t in head_count: if head_count[t] > base_count.get(t, 0): Finding(Q.pragma, 
 ```
 src/jtc_gov/
   domain/    ids.py  models.py  repo.py  gates.py  machinery.py
-  derive/    approvals.py  markers.py  gates.py
-  checks/    k.py  d.py  t.py  __init__.py(run_all)
+  derive/    approvals.py  markers.py  changes.py  hashing.py  gates.py
+  checks/    k.py  d.py  t.py  pragma.py  human_merge.py  __init__.py(run_all)
   adapters/  cli.py  claude_hook.py  repo_git.py  report.py(出力の整形。cli と claude_hook が共有する)
 ```
 現行モジュールとの対応は 02 §10(L2 の結論で #3 を反映)。
