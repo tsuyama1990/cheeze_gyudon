@@ -55,8 +55,8 @@
 | 12 | 全体方針と AGENT.md の規則の重複(config に出す規則、品質の限界値) | `~/.claude/CLAUDE.md` | 解消(AGENT.md から削除し、参照) |
 | 13 | 原典の要件書(`doc/jtc_governance_framework.md`)と、REQ-2026-010 の内容の重複 | REQ-2026-010 | 解消(履歴文書と明記。更新しない) |
 | 14 | フック設定(現行の `.agent/settings.json` と、計画の `.claude/settings.json`) | `.claude/settings.json` | 移行で置換(設計書 §11 step 4) |
-| 15 | 品質ツールの列挙(`gate.sh`、`.pre-commit-config.yaml`、CI、README) | `scripts/gate.sh` | **L2 で解消**(pre-commit が gate.sh を呼ぶ形か、役割を分けるか) |
-| 16 | `main` への直接コミット禁止(全体設定の規則、全体のフック、pre-commit、ruleset テンプレート) | 設計書 §8 に定義を 1 つ。実装(フック、ruleset)は定義から派生 | **L2 で解消**(どの実装を残すかを決める) |
+| 15 | 品質ツールの列挙(`gate.sh`、`.pre-commit-config.yaml`、CI、README) | `scripts/gate.sh` | 解消(pre-commit は衛生フックだけ。DEC-031) |
+| 16 | `main` への直接コミット禁止(全体設定の規則、全体のフック、pre-commit、ruleset テンプレート) | 設計書 §8 に定義を 1 つ。実装(フック、ruleset)は定義から派生 | 解消(pre-commit の `no-commit-to-branch` を削除。DEC-032。ruleset は最後に有効化) |
 | 17 | `CLAUDE.md` の内容(AGENT.md と重複するゲートの説明と、実測で誤りと分かった「ツール呼び出しはフックで遮断される」) | `AGENT.md` | 解消(アダプターとしての参照 1 行だけにした) |
 | 18 | 旧要件 `REQ-2026-001` の仕様と、決定との食い違い(F04 の 50ms) | 移行で `REQ-2026-001` を取り下げる(DEC-037) | 移行(設計書 §11 step 3) |
 

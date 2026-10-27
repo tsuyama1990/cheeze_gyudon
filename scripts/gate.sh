@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "========================================================"
-echo " Running Full JTC-Gov Local Quality & Governance Suite"
-echo "========================================================"
+BASE="${GATE_BASE:-origin/main}"
+THRESHOLD="$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['tool']['coverage']['report']['fail_under'])")"
 
-echo "[1/6] Ruff Format & Lint Check..."
+echo "[1/7] Ruff lint & format..."
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 
-echo "[2/6] Mypy Strict Static Type Check..."
+echo "[2/7] Mypy..."
 uv run mypy src tests
 
-echo "[3/6] Vulture Dead Code Check..."
-uv run vulture src --min-confidence 80
+echo "[3/7] Vulture..."
+uv run vulture
 
-echo "[4/6] Duplicate Code Detection..."
-uv run python scripts/check_duplicates.py
-
-echo "[5/6] Pytest & Branch Coverage..."
+echo "[4/7] Pytest & coverage..."
 uv run pytest
 
-echo "[6/6] Pre-commit Hooks (All Files)..."
+echo "[5/7] Changed-line coverage vs ${BASE}..."
+uv run diff-cover coverage.xml --compare-branch="${BASE}" --fail-under="${THRESHOLD}"
+
+echo "[6/7] gov check vs ${BASE}..."
+uv run gov check --base "${BASE}"
+
+echo "[7/7] Pre-commit hygiene (all files)..."
 uv run pre-commit run --all-files
 
-echo "========================================================"
-echo " [SUCCESS] All Quality Gates & Governance Hooks Passed!"
-echo "========================================================"
+echo "[SUCCESS] All quality gates passed."

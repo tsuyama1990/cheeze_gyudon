@@ -25,7 +25,7 @@ Requirements: Python 3.11+, [`uv`](https://docs.astral.sh/uv/), Git.
 
 ```bash
 uv sync
-uv run pre-commit install --hook-type pre-commit --hook-type pre-push
+uv run pre-commit install
 scripts/gate.sh        # the single entry point for the quality gate
 uv run gov --help
 uv run gov check       # K / D / T / Q.pragma against origin/main (exit 0 pass, 1 violation, 2 not evaluated)
