@@ -18,7 +18,7 @@ uv run vulture src --min-confidence 80
 echo "[4/6] Duplicate Code Detection..."
 uv run python scripts/check_duplicates.py
 
-echo "[5/6] Pytest & Branch Coverage (>= 90%)..."
+echo "[5/6] Pytest & Branch Coverage..."
 uv run pytest
 
 echo "[6/6] Pre-commit Hooks (All Files)..."

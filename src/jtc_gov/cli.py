@@ -224,7 +224,7 @@ def review_status(gate: str) -> None:
 
 @main.command(name="audit-push")
 def audit_push() -> None:
-    """Runs local CI validation (pytest branch coverage >= 90%, doc sync)."""
+    """Runs local CI validation (pytest with coverage, trace-check)."""
     click.echo("Running local CI validation...")
 
     try:

@@ -35,7 +35,7 @@ jobs:
         run: uv run gov ci-verify
 
       - name: Run Full Quality & Governance Suite
-        run: bash scripts/verify_all.sh
+        run: scripts/gate.sh
 
       - name: Enforce Human Sign-off
         run: |
