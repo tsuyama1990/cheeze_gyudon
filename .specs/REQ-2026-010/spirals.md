@@ -12,7 +12,7 @@
 2. **前提の検査(preflight)**: 設計が頼りにしている環境の前提を、実測して確認する(§2)。
 3. **リスクの特定と、先に検証するもの**: 設計の前提のうち、外れると手戻りが大きいものを選び、設計の前に検証する(実験、spike)。
 4. **設計とテスト仕様**: 設計書と、対のテスト仕様を同時に作る(L1 ↔ E2E、L2 ↔ 結合、L3 ↔ 単体)。
-5. **レビュー**: 異なる系統のモデルを 2 つ以上使う。指摘は [reviews/](reviews/) に残し、確認できたものだけを反映する。
+5. **レビュー**: 設計書を起草した時点で、DeepSeek(`deepseek-v4-pro`)のレビューを**最大 2 回**入れる(DEC-030)。指摘は [reviews/](reviews/) に残し、作成者が本文と突き合わせて確認できたものだけを反映する。2 回で致命が残る場合は、3 回目に進まず、概念を見直す。
 6. **決定**: オーナーの判断が必要な点は、「事実 → 最小の問い → 答え」に分けて聞く。決定は [decisions.md](decisions.md) に記録する。
 
 パッチにしないための規則:
@@ -29,7 +29,7 @@
 |---|---|---|
 | 品質ゲートの入口が 1 つで、実行可能 | `ls -l scripts/gate.sh`、`git ls-files -s scripts/gate.sh` が 100755 | 解消。以前は `verify_all.sh` で、全体設定が呼ぶ `gate.sh` が存在しなかった |
 | 全体設定の終了時フックが `gate.sh` を呼ぶ | 模擬入力で `~/.claude/hooks/stop_gate.sh` を `bash -x` で実行し、`scripts/gate.sh` の実行を見る | 確認。トレースに `scripts/gate.sh` の実行と、通過後の失敗カウンタ削除がある |
-| マージスクリプトが `gate.sh` を呼ぶ | マージ時に `/tmp/merge-to-main-gate.log` ができる | 次のマージで確認 |
+| マージスクリプトが `gate.sh` を呼ぶ | マージ時に `/tmp/merge-to-main-gate.log` ができる | 確認。4070e44 のマージで、ログに SUCCESS が残った |
 | CI が `gate.sh` を呼ぶ | `gh run view` のログに gate の出力がある | 次の push の後で確認 |
 | フックが有効(Claude Code が読む) | `claude -p` で実際に拒否される(L1-M01) | 未接続。`.claude/settings.json` がない |
 | `main` が保護されている | `gh api repos/.../branches/main/protection` | 保護なし(404)。ruleset は 0 件 |
@@ -91,10 +91,6 @@
 **最初の小さな問い**: §6 を参照(この文書が正本。決まったら decisions.md に移す)。
 
 ## 6. L2 の未決の問い(小さく分解したもの)
-(スパイラル 2 の進行に合わせて、この節を更新する。決まった問いは `decisions.md` へ移し、ここから消す。)
+決まった問いは decisions.md へ移し、ここから消す。決まったもの: DEC-027(ハッシュ)、DEC-028(承認ファイルの形式)、DEC-029(コマンド体系)。
 
-| ID | 事実 | 問い | 暫定の答え(推論) |
-|---|---|---|---|
-| Q-L2-1 | 承認の SHA-256 は、改行コードや末尾の空白が違うと一致しない。Linux のみで使う | ハッシュは、ファイルのバイト列そのままで取るか | そのまま取る。`.gitattributes` で `eol=lf` を固定して、改行の揺れを防ぐ(R3 で実験) |
-| Q-L2-2 | 承認の名前は `approval.json` と仮置き | 形式は JSON 固定でよいか | JSON。Pydantic のモデルが正で、スキーマは生成する(DEC-003) |
-| Q-L2-3 | `gov` のコマンドは現行 14 個。V2 の入口は `status`、`check`(K・D・T・Q)、`hook` | 現行のコマンドのうち、廃止するものは何か | `gate-check`(前進)、`escalate`、`draft-decision`、`redteam`、`review-status`、`audit-push`、`format-pr-*`、`ci-verify`(`check` に統合)。残るのは `init`、`doctor`、`status`、`check`、`hook` |
+(現在、未決の問いなし。`03_architecture.md` §14 に、起草中に出た問いを書く。)
