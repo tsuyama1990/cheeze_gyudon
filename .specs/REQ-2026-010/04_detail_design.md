@@ -116,7 +116,7 @@ def spec_tags(repo: Repo, ref: Ref, req: str) -> set[str] | ParseFailure
 class TestFunction:
     qualname: str                  # "test_a" または "TestK.test_m"
     tags: tuple[str, ...]          # requirement marker の引数(リテラルのみ)。なければ空
-    has_marker: bool               # requirement marker が(引数がリテラルでないものを含めて)1 つでもあるか
+    dynamic: bool                  # 第 1 引数がリテラルの str でない requirement marker が 1 つでもあるか
     source_sha: str                # デコレータの最初の行から end_lineno までのソースの SHA-256
     lineno: int
 
@@ -126,7 +126,7 @@ def test_functions(source: bytes) -> list[TestFunction] | ParseFailure
 1. `ast.parse(source)`。`SyntaxError` は `ParseFailure`。ソースは `splitlines` した行を保持する。
 2. モジュール直下の文を走査する。`ast.walk` は使わない(ネストした関数を拾うため)。ただし、直下の `if`・`try`・`with`・`for`・`while`・`match` の**本体の中の文**には降りる(pytest は実行後の名前空間から集めるので、`if` の中の `def test_*` も収集される)。関数とクラスの中には降りない。`pytestmark = …` の代入があれば、値が `requirement` の呼び出し、またはそのリスト・タプルのとき、モジュール共通のタグとして集める。 [推論: pytest の収集との整合。レビュー指摘 I-01、L-03]
 3. 直下の `FunctionDef`/`AsyncFunctionDef` で名前が `test_` で始まるもの、と、名前が `Test` で始まる `ClassDef` の直下の同様のメソッドを `TestFunction` にする。クラスのデコレータの marker は、そのメソッドに加える。**同じ名前の関数が複数あれば、すべてを別の項目にする**(2 つ目以降の `qualname` に `#2`、`#3` を付ける)。pytest は最後の定義だけを実行するが、検査は全部に対して行う(厳しい側)。
-4. デコレータからタグを取る: `ast.Call` で、`func` が `Attribute(attr="requirement")`(`pytest.mark.requirement`)または `Name("requirement")` のもの。第 1 引数が `ast.Constant` の `str` ならタグ、そうでなければ `has_marker` だけを真にする。
+4. デコレータからタグを取る: `ast.Call` で、`func` が `Attribute(attr="requirement")`(`pytest.mark.requirement`)または `Name("requirement")` のもの。第 1 引数が `ast.Constant` の `str` ならタグ、そうでなければ `dynamic` を真にする(他にリテラルのタグがあっても残る)。
 5. 範囲: `min(デコレータの lineno, def の lineno)` から `end_lineno` までの行を連結して SHA-256。`tags` は、関数自身、クラス、モジュールの marker を合わせた**実効のタグ**。
 
 **収集の限界(既知。推論)**: 次は pytest が収集するが、`test_functions` は拾わない。基底クラス(`Test` で始まらないもの)から継承した `test_*`、入れ子の `Test*` クラス、`test_alias = test_plain` のような別名。これらにある marker のないテストは `T.a` を通り、変更は `K.c` に出ない。協調的なエージェントが通常は書かない形なので、MVP では受け入れる(backlog B-13)。`pytestmark` は、モジュール直下の最後の代入だけを使う。 [レビュー F3、F4]
@@ -169,7 +169,7 @@ K の適用条件は「(`src/` と、`tests/` または `.specs/` の変更)ま�
 - 最後に、1 つでも承認ファイルの Change があれば、`head` の全 `approval.json` の状態が `open` の数を数え、2 以上なら `D.d`。
 
 ### 4.3 `checks/t.py`
-`head` の `list` から、`tests/` 配下でない `test_*.py` を `T.c`、`tests/` 配下の `test_*.py` を読み、`test_functions` を取る。`ParseFailure` は `T.a`(ファイル)。各関数について: ①`tags` のうち `FEATURE_TAG` に**一致しないもの**ごとに `T.a`(形式不正)②`FEATURE_TAG` に一致するものが 1 つもなければ `T.a`(理由は、marker なし / 引数がリテラルでない(`has_marker` だけ真)/ 形式不正のみ、のいずれか)③`FEATURE_TAG` に一致するタグだけについて、要件の仕様(`01_req_spec.md`)が `head` になければ、またはタグが `spec_tags` に含まれなければ `T.b`。`requirement_of` には、一致したタグだけを渡す(`ValueError` で落ちない)。 [レビュー指摘 I-03]
+`head` の `list` から、`tests/` 配下でない `test_*.py` を `T.c`、`tests/` 配下の `test_*.py` を読み、`test_functions` を取る。`ParseFailure` は `T.a`(ファイル)。各関数について: ①`tags` のうち `FEATURE_TAG` に**一致しないもの**ごとに `T.a`(形式不正)②`dynamic` が真なら、他に正しいタグがあっても `T.a`(リテラルでない引数)③`FEATURE_TAG` に一致するものが 1 つもなければ `T.a`(marker なし / 形式不正のみ)④`FEATURE_TAG` に一致するタグだけについて、要件の仕様(`01_req_spec.md`)が `head` になければ、またはタグが `spec_tags` に含まれなければ `T.b`。`requirement_of` には、一致したタグだけを渡す(`ValueError` で落ちない)。 [レビュー指摘 I-03]
 
 ### 4.4 `checks/pragma.py`
 03 §4.5 のとおり。正規化 = `line.strip()`。`# pragma: no cover` の判定は、行に部分文字列 `pragma: no cover` を含むか。ファイルは `src/` 配下の `.py` で、`utf-8` でデコードできなければ飛ばす。超過した分の位置は、`head` のファイルの該当行の番号(同じ行が複数あるときは、後ろから)を `path:lineno` として返す。
