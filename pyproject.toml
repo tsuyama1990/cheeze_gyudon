@@ -148,7 +148,6 @@ addopts = [
     "--cov-branch",
     "--cov-report=term-missing",
     "--cov-report=xml:coverage.xml",
-    "--cov-fail-under=90",
 ]
 markers = [
     "requirement: link test to specific specification requirement ID (e.g. @pytest.mark.requirement('REQ-xxx'))",
@@ -162,6 +161,7 @@ omit = [
 ]
 
 [tool.coverage.report]
+fail_under = 90
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

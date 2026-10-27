@@ -240,6 +240,7 @@ D1・D2・D6 の提案: [proposal_l1_flow.md](background/proposal_l1_flow.md)(�
 | DEC-035 | 2026-10-27 | 変更行カバレッジの閾値(Q-L2-8) | 有効 | 答え: 全体のカバレッジと同じ値にする。キーは `[tool.jtc_gov]` の `diff_coverage_fail_under`(仮)。実測して調整する | tsuyama1990 |
 | DEC-036 | 2026-10-27 | L1・L2・L3 の承認 | 有効 | 事実: L1(02_system_design、02_system_tests)、L2(03_architecture、03_integration_tests)、L3(04_detail_design、04_unit_tests)は、DeepSeek のレビューを各 2 回(L1 は計 5 回)受け、致命は残っていない。Q-L2-4〜8 は DEC-031〜035 で決定済み。答え: 01〜04 を承認し、実装に進む。承認の記録はこの行を正本とし、各文書の承認欄はここを参照する。この承認はマニフェスト(`approval.json`)ではなく文書上の記録で、マニフェストは移行手順(02 §11)で作る。以後の設計変更は新しいスパイラルで行う(DEC-024) | tsuyama1990 |
 | DEC-037 | 2026-10-27 | REQ-2026-001 の扱い(02 §11 手順 3 の見直し) | 有効 | 事実: `closed` は全タグ(F01〜F05)にテストを要する。v1 のコードとテストは置き換えで削除する。答え: REQ-2026-001 は `withdrawn` で履歴に残し、v1 のコードとテストは `gov check` への置き換えと同じブランチで削除する(DEC-036 の承認済みの手順の見直し) | tsuyama1990 |
+| DEC-038 | 2026-10-27 | 変更行カバレッジの閾値のキー(DEC-035 の「仮」の確定) | 有効 | 事実: 全体の閾値を `[tool.coverage.report] fail_under` に置けば、pytest-cov もそれを使う。答え: 新しいキー `[tool.jtc_gov]` は作らず、`gate.sh` が `fail_under` を読んで `diff-cover --fail-under` に渡す。閾値の正本は 1 か所。`addopts` の `--cov-fail-under` は削除 | (提案。オーナーの承認待ち) |
 
 ## 訂正履歴
 
