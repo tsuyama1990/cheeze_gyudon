@@ -13,7 +13,7 @@ from jtc_gov.domain.gates import DELIVERABLES
 from jtc_gov.domain.models import Approval, ApprovalState, Change, Finding, ParseFailure
 from jtc_gov.domain.repo import Repo
 
-_TEST_FILE = re.compile(r"^tests/(?:.*/)?test_[^/]*\.py$")
+_TEST_FILE = re.compile(r"^tests/(?:.*/)?test_[^/]*\.py\Z")
 
 
 def _tested_tags(repo: Repo) -> set[str]:

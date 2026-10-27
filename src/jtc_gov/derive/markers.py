@@ -1,4 +1,5 @@
 import ast
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -6,7 +7,7 @@ from jtc_gov.derive.hashing import sha256_hex
 from jtc_gov.domain.models import ParseFailure
 
 _MARKER = "requirement"
-_COMPOUND = (ast.If, ast.Try, ast.With, ast.For, ast.While, ast.Match)
+_COMPOUND = (ast.If, ast.Try, ast.TryStar, ast.With, ast.For, ast.While, ast.Match)
 _FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
@@ -48,7 +49,7 @@ def _marks(exprs: Iterable[ast.expr]) -> _Marks:
 
 
 def _blocks(stmt: ast.stmt) -> list[list[ast.stmt]]:
-    if isinstance(stmt, ast.Try):
+    if isinstance(stmt, ast.Try | ast.TryStar):
         return [stmt.body, *(h.body for h in stmt.handlers), stmt.orelse, stmt.finalbody]
     if isinstance(stmt, ast.Match):
         return [case.body for case in stmt.cases]
@@ -72,28 +73,28 @@ def _module_marks(stmts: Iterable[ast.stmt]) -> _Marks:
         ):
             value = stmt.value
             items = value.elts if isinstance(value, ast.List | ast.Tuple) else [value]
-            marks = marks.plus(_marks(items))
+            marks = _marks(items)
     return marks
 
 
 def test_functions(source: bytes) -> list[TestFunction] | ParseFailure:
     try:
         tree = ast.parse(source)
-        lines = source.decode("utf-8").splitlines()
+        lines = re.split(r"\r\n|\r|\n", source.decode("utf-8"))
     except (SyntaxError, ValueError) as e:
         return ParseFailure(str(e))
     top = list(_flatten(tree.body))
     module = _module_marks(top)
     found: list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef, _Marks]] = []
     for stmt in top:
-        if isinstance(stmt, _FUNCTIONS) and stmt.name.startswith("test"):
+        if isinstance(stmt, _FUNCTIONS) and stmt.name.startswith("test_"):
             found.append((stmt.name, stmt, module))
         elif isinstance(stmt, ast.ClassDef) and stmt.name.startswith("Test"):
             cls = module.plus(_marks(stmt.decorator_list))
             found += [
                 (f"{stmt.name}.{m.name}", m, cls)
                 for m in stmt.body
-                if isinstance(m, _FUNCTIONS) and m.name.startswith("test")
+                if isinstance(m, _FUNCTIONS) and m.name.startswith("test_")
             ]
     seen: dict[str, int] = {}
     result: list[TestFunction] = []

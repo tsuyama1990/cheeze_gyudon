@@ -183,3 +183,21 @@ def test_unsupported_status_and_submodule(root: Path) -> None:
     with pytest.raises(RepoError, match="submodule"):
         GitRepo(root, base, "worktree").read("mod", "head")
     assert GitRepo(root, base, head).read("missing", "head") is None
+
+
+@pytest.mark.requirement("REQ-2026-010-F01")
+def test_nested_repository_and_non_utf8_paths_are_repo_errors(root: Path) -> None:
+    base = commit(root, {"a": b"1"})
+    nested = root / "tests" / "nested"
+    nested.mkdir(parents=True)
+    git(nested, "init", "-q")
+    with pytest.raises(RepoError, match="nested repository"):
+        GitRepo(root, base, "worktree").list("head")
+    git(root, "rm", "-q", "--cached", "-r", "tests", "--ignore-unmatch")
+    for child in nested.iterdir():
+        if child.name == ".git":
+            subprocess.run(["rm", "-rf", str(child)], check=True)  # noqa: S603, S607
+    (nested / "x").write_bytes(b"1")
+    (root / os.fsdecode(b"bad-\xff")).write_bytes(b"1")
+    with pytest.raises(RepoError, match="UTF-8"):
+        GitRepo(root, base, "worktree").list("head")

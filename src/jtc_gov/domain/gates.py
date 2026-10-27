@@ -17,5 +17,5 @@ DELIVERABLES: Final = (
     Deliverable(4, "04_detail_design.md", "04_unit_tests.md"),
 )
 APPROVAL_FILE: Final = "approval.json"
-APPROVED_FILE_PATTERN: Final = re.compile(r"^0[1-5]_[^/]+$")
+APPROVED_FILE_PATTERN: Final = re.compile(r"^0[1-5]_[^/]+\Z")
 GUARDED_PREFIX: Final = re.compile(r"^0[1-5]_")

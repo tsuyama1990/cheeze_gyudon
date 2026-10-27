@@ -296,3 +296,21 @@ def test_display_gate() -> None:
     assert gate(first_two) == 3
     assert gate(full) == 5
     assert gate({**full, f".specs/{REQ}/04_unit_tests.md": b""}) == 4
+
+
+@pytest.mark.requirement("REQ-2026-010-F03")
+def test_test_functions_review_fixes() -> None:
+    form_feed = "\x0c\n" + '@pytest.mark.requirement("A")\ndef test_a():\n    assert x == 1\n'
+    changed = form_feed.replace("== 1", "== 2")
+    assert _funcs(form_feed)[0].source_sha != _funcs(changed)[0].source_sha
+    star = "try:\n    def test_hidden(): pass\nexcept* ValueError:\n    pass\n"
+    assert [f.qualname for f in _funcs(star)] == ["test_hidden"]
+    last = 'pytestmark = pytest.mark.requirement("A")\npytestmark = []\ndef test_a(): pass\n'
+    assert _funcs(last)[0].tags == ()
+    assert _funcs("def testdata(): pass\n") == []
+
+
+@pytest.mark.requirement("REQ-2026-010-F02")
+def test_approval_path_rejects_trailing_newline() -> None:
+    files = {f".specs/{REQ}/approval.json\n": _ok("REQ-2026-010", "withdrawn")}
+    assert load_approvals(FakeRepo({}, files), "head") == {}

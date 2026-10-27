@@ -4,7 +4,7 @@ from typing import Annotated, Final
 from pydantic import StringConstraints
 
 REQUIREMENT_ID: Final = re.compile(r"^REQ-\d{4}-\d{3,}$")
-FEATURE_TAG: Final = re.compile(r"^REQ-\d{4}-\d{3,}-F\d{2,}$")
+FEATURE_TAG: Final = re.compile(r"^REQ-\d{4}-\d{3,}-F\d{2,}\Z")
 RequirementId = Annotated[str, StringConstraints(pattern=REQUIREMENT_ID.pattern)]
 
 

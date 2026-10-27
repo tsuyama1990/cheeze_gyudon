@@ -28,6 +28,8 @@ uv sync
 uv run pre-commit install --hook-type pre-commit --hook-type pre-push
 scripts/gate.sh        # the single entry point for the quality gate
 uv run gov --help
+uv run gov check       # K / D / T / Q.pragma against origin/main (exit 0 pass, 1 violation, 2 not evaluated)
+uv run gov status      # approvals per requirement
 ```
 
 ## License
