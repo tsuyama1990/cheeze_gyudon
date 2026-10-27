@@ -242,6 +242,7 @@ D1・D2・D6 の提案: [proposal_l1_flow.md](background/proposal_l1_flow.md)(�
 | DEC-037 | 2026-10-27 | REQ-2026-001 の扱い(02 §11 手順 3 の見直し) | 有効 | 事実: `closed` は全タグ(F01〜F05)にテストを要する。v1 のコードとテストは置き換えで削除する。答え: REQ-2026-001 は `withdrawn` で履歴に残し、v1 のコードとテストは `gov check` への置き換えと同じブランチで削除する(DEC-036 の承認済みの手順の見直し) | tsuyama1990 |
 | DEC-038 | 2026-10-27 | 変更行カバレッジの閾値のキー(DEC-035 の「仮」の確定) | 有効 | 事実: 全体の閾値を `[tool.coverage.report] fail_under` に置けば、pytest-cov もそれを使う。答え: 新しいキー `[tool.jtc_gov]` は作らず、`gate.sh` が `fail_under` を読んで `diff-cover --fail-under` に渡す。閾値の正本は 1 か所。`addopts` の `--cov-fail-under` は削除 | tsuyama1990 |
 | DEC-039 | 2026-10-27 | ローカルのフックで拒否する規則(DEC-034 の線引き) | 有効 | 答え: commit・push のフックが拒否するのは K と D の違反だけ。T と Q.pragma は警告(終了コード 0、標準エラーに「CI で失敗します」)。基盤のエラーは従来どおり fail-open。03 §7 と 04 §5.4 の「Finding があれば拒否」はこの決定で置き換わる(設計書の文面は承認済みで変更できないので、backlog B-14 で次の設計改訂のときに直す)。フックの呼び出しは `.venv/bin/gov`(`uv run` は失敗時に終了コード 2 を返し、全ツール呼び出しを止めてしまうため) | tsuyama1990 |
+| DEC-040 | 2026-10-27 | `main` の ruleset の適用(02 §8、DEC-032) | 有効 | 事実: 公開リポジトリで管理者権限があり、ruleset が使える。答え: テンプレートを設計に合わせて直し(承認 0、strict、必須チェック `gate-verification`、force push と削除の禁止)、適用した(id 25955673)。リポジトリ管理者は常にバイパスできる設定にした。理由: オーナーの全体ワークフロー(`merge-to-main.sh` と `main` への push)を保つため。したがって、この ruleset が止めるのは管理者以外の直接 push と、検査に通らない PR のマージで、管理者の直接 push は止めない。設計の「直接 push の禁止」からの逸脱で、効果はこの範囲に限られる | tsuyama1990 |
 
 ## 訂正履歴
 

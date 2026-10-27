@@ -128,3 +128,16 @@ def test_doctor_outside_a_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     result = CliRunner().invoke(main, ["doctor"])
     assert result.exit_code == 1
     assert "E.repo" in result.output
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+def test_ruleset_template_matches_the_design() -> None:
+    """L1-C02: no approvals required, strict status checks, the CI job is the required check."""
+    ruleset = json.loads((PROJECT / ".github" / "templates" / "ruleset_main.json").read_text())
+    rules = {r["type"]: r.get("parameters", {}) for r in ruleset["rules"]}
+    assert rules["pull_request"]["required_approving_review_count"] == 0
+    assert rules["required_status_checks"]["strict_required_status_checks_policy"] is True
+    contexts = [c["context"] for c in rules["required_status_checks"]["required_status_checks"]]
+    workflow = yaml.safe_load(next((PROJECT / ".github" / "workflows").glob("*.yml")).read_text())
+    assert set(contexts) <= set(workflow["jobs"])
+    assert ruleset["conditions"]["ref_name"]["include"] == ["refs/heads/main"]
