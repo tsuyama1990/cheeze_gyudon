@@ -59,7 +59,7 @@ def _written_path(root: Path, tool_input: object) -> str | None:
 
 def _notice(repo: Repo, root: Path, payload: dict[str, object]) -> HookOutcome:
     path = _written_path(root, payload.get("tool_input"))
-    if path is None or not path.startswith(SRC_PREFIX) or len(valid_open(repo, "head")) == 1:
+    if path is None or not path.startswith(SRC_PREFIX) or len(valid_open(repo, "base")) == 1:
         return HookOutcome(0)
     return HookOutcome(0, stdout=f"{short_status(repo)}\n{APPROVAL_NOTICE}")
 

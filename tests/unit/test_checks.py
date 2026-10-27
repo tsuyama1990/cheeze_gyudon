@@ -32,7 +32,8 @@ def _k(base: dict[str, bytes], head: dict[str, bytes]) -> list[Finding]:
 @pytest.mark.requirement("REQ-2026-010-F01")
 def test_k_applies_only_with_src_and_aux() -> None:
     assert _k({}, {"src/a.py": b"x"}) == []
-    assert _k({}, {TEST: _t(TAG)}) == []
+    assert _rules(_k({}, {TEST: _t(TAG)})) == ["K.a"]
+    assert _k({TEST: _t(TAG)}, {TEST: _t(TAG, "pass  # edited")}) == []
     assert _rules(_k({}, {"src/a.py": b"x", TEST: _t(TAG)})) == ["K.a"]
     assert _rules(_k({}, {"src/a.py": b"x", ".specs/x/y.md": b"x"})) == ["K.a"]
 
@@ -280,3 +281,40 @@ def test_run_all_propagates_repo_error() -> None:
 
     with pytest.raises(RepoError):
         run_all(Broken({}, {}))
+
+
+@pytest.mark.requirement("REQ-2026-010-F01")
+def test_k_on_tests_only_pr() -> None:
+    approved = with_approval(REQ)
+    new_test = {TEST: _t(TAG)}
+    assert _rules(_k(approved, {**approved, **new_test})) == []
+    assert _rules(_k({}, new_test)) == ["K.a"]
+    other = {TEST: _t("REQ-2026-001-F01")}
+    assert _rules(_k(approved, {**approved, **other})) == ["K.c"]
+    assert _k({**approved, **new_test}, {**approved, TEST: _t(TAG, "assert 1")}) == []
+
+
+@pytest.mark.requirement("REQ-2026-010-F02")
+def test_d_completing_an_open_requirement() -> None:
+    spec = f"- **[{TAG}] x**\n- **[REQ-2026-010-F02] y**\n"
+    open_ = {**with_approval(REQ, spec=spec), TEST: _t(TAG)}
+    closed = with_approval(REQ, "closed", spec)
+    untested = _d(open_, {**closed, TEST: _t(TAG)})
+    assert [f.message for f in untested] == ["REQ-2026-010-F02 にテストがない"]
+    shrunk_spec = f"- **[{TAG}] x**\n"
+    dropped = {**with_approval(REQ, "closed", shrunk_spec), TEST: _t(TAG)}
+    findings = _d(open_, dropped)
+    assert {f.path for f in findings} >= {f".specs/{REQ}/01_req_spec.md"}
+    assert {f.rule for f in findings} == {"D.c"}
+    tampered = {**closed, f".specs/{REQ}/02_system_design.md": b"changed", TEST: _t(TAG)}
+    assert [f.path for f in _d(open_, tampered)] == [
+        f".specs/{REQ}/02_system_design.md",
+        f".specs/{REQ}",
+    ]
+    done = {
+        **with_approval(REQ, spec=f"- **[{TAG}] x**\n"),
+        TEST: _t(TAG),
+    }
+    finished = {**with_approval(REQ, "closed", f"- **[{TAG}] x**\n"), TEST: _t(TAG)}
+    assert _d(done, finished) == []
+    assert _d({}, finished) == []

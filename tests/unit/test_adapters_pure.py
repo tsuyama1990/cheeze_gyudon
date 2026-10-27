@@ -41,7 +41,7 @@ def _repo(*approvals: tuple[str, str]) -> FakeRepo:
     files: dict[str, bytes] = {}
     for req, state in approvals:
         files.update(with_approval(req, state))
-    return FakeRepo({}, files)
+    return FakeRepo(files, files)
 
 
 @pytest.mark.requirement("REQ-2026-010-F06")
@@ -116,3 +116,12 @@ def test_status_of_a_closed_requirement_is_not_reported_as_invalid() -> None:
     text = format_status(FakeRepo(files, files), "worktree")
     assert "REQ-2026-010: closed / ゲート 5" in text
     assert "失効" not in text
+
+
+@pytest.mark.requirement("REQ-2026-010-F06")
+def test_src_change_allowed_follows_base_not_head() -> None:
+    closed_on_base = with_approval(REQ, "closed")
+    reopened_on_head = with_approval(REQ, "open")
+    repo = FakeRepo(closed_on_base, reopened_on_head)
+    assert "不可" in format_status(repo, "worktree")
+    assert "不可" in short_status(repo)

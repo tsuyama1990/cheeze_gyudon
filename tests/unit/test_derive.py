@@ -7,7 +7,7 @@ from jtc_gov.derive.approvals import (
     valid_open,
     validity,
 )
-from jtc_gov.derive.changes import related_requirements
+from jtc_gov.derive.changes import added_test_functions, related_requirements
 from jtc_gov.derive.gates import display_gate
 from jtc_gov.derive.hashing import sha256_hex
 from jtc_gov.derive.markers import TestFunction
@@ -314,3 +314,24 @@ def test_test_functions_review_fixes() -> None:
 def test_approval_path_rejects_trailing_newline() -> None:
     files = {f".specs/{REQ}/approval.json\n": _ok("REQ-2026-010", "withdrawn")}
     assert load_approvals(FakeRepo({}, files), "head") == {}
+
+
+@pytest.mark.requirement("REQ-2026-010-F01")
+def test_added_test_functions() -> None:
+    p = "tests/test_x.py"
+
+    def added(
+        base: dict[str, bytes], head: dict[str, bytes], renames: dict[str, str] | None = None
+    ) -> bool:
+        repo = FakeRepo(base, head, renames)
+        return added_test_functions(repo, repo.changes())
+
+    assert added({}, {p: _test_src(T)})
+    assert added(
+        {p: _test_src(T)}, {p: _test_src(T) + b"\n\n" + _test_src(T).replace(b"test_a", b"test_b")}
+    )
+    assert not added({p: _test_src(T)}, {p: _test_src(T, "assert 1")})
+    assert not added({p: _test_src(T)}, {})
+    assert not added({p: _test_src(T)}, {"tests/test_y.py": _test_src(T)}, {p: "tests/test_y.py"})
+    assert not added({}, {p: b"def (:"})
+    assert not added({}, {"src/a.py": b"x = 1\n"})

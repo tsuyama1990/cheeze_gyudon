@@ -48,34 +48,75 @@ def test_init_creates_is_idempotent_and_never_overwrites(
     assert (root / ".gitattributes").read_text() == "* text=auto\n"
 
 
-@pytest.mark.requirement("REQ-2026-010-F09")
-def test_doctor_reports_each_missing_precondition(
+@pytest.fixture
+def healthy(
     root: Path,  # noqa: F811
     monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """L2-I30, L2-I43"""
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
     monkeypatch.chdir(root)
-    runner = CliRunner()
-    empty = runner.invoke(main, ["doctor"])
-    assert empty.exit_code == 1
-    assert empty.output.count("NG") == 4
-    runner.invoke(main, ["init"])
+    CliRunner().invoke(main, ["init"])
     gate = root / "scripts" / "gate.sh"
     gate.parent.mkdir()
     gate.write_text("#!/usr/bin/env bash\n")
     gate.chmod(0o755)
     (root / ".pre-commit-config.yaml").write_text(HYGIENE_ONLY)
+    workflow = root / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("run: scripts/gate.sh\n")
     commit(root, {})
-    remote = root.parent / "remote.git"
+    remote = tmp_path_factory.mktemp("remote")
     subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(remote)], check=True)  # noqa: S603, S607
     git(root, "remote", "add", "origin", str(remote))
     git(root, "push", "-q", "origin", "main")
     git(root, "fetch", "-q", "origin")
-    assert runner.invoke(main, ["doctor"]).exit_code == 0
-    (root / ".pre-commit-config.yaml").write_text(HYGIENE_ONLY + "      - id: ruff\n")
-    assert "ruff" in runner.invoke(main, ["doctor"]).output
-    gate.chmod(0o644)
-    assert runner.invoke(main, ["doctor"]).output.count("NG") == 2
+    return root
+
+
+def failures(output: str) -> list[str]:
+    return [line for line in output.splitlines() if line.startswith("NG")]
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+def test_doctor_reports_every_missing_precondition(
+    root: Path,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """L2-I30"""
+    monkeypatch.chdir(root)
+    empty = CliRunner().invoke(main, ["doctor"])
+    assert empty.exit_code == 1
+    assert len(failures(empty.output)) == 5
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+def test_doctor_passes_when_everything_is_wired(healthy: Path) -> None:
+    assert CliRunner().invoke(main, ["doctor"]).exit_code == 0
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+@pytest.mark.parametrize(
+    ("path", "content", "broken"),
+    [
+        (".pre-commit-config.yaml", HYGIENE_ONLY + "      - id: ruff\n", "衛生フック"),
+        (".github/workflows/ci.yml", "run: echo skipped\n", "CI のワークフロー"),
+    ],
+    ids=["duplicated-tools-in-pre-commit", "ci-does-not-call-the-gate"],
+)
+def test_doctor_names_the_broken_wiring(
+    healthy: Path, path: str, content: str, broken: str
+) -> None:
+    """L2-I43, L2-I54"""
+    (healthy / path).write_text(content)
+    found = failures(CliRunner().invoke(main, ["doctor"]).output)
+    assert len(found) == 1
+    assert broken in found[0]
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+def test_doctor_fails_when_the_gate_is_not_executable(healthy: Path) -> None:
+    (healthy / "scripts" / "gate.sh").chmod(0o644)
+    assert len(failures(CliRunner().invoke(main, ["doctor"]).output)) == 1
 
 
 @pytest.mark.requirement("REQ-2026-010-F09")

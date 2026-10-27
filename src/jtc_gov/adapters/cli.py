@@ -161,6 +161,7 @@ class DoctorItem:
 
 GATE_SCRIPT = Path("scripts/gate.sh")
 PRE_COMMIT_CONFIG = Path(".pre-commit-config.yaml")
+WORKFLOWS_DIR = Path(".github/workflows")
 DUPLICATED_TOOLS = ("ruff", "mypy", "vulture", "pytest", "gate.sh", "gov check")
 
 
@@ -192,6 +193,12 @@ def _settings(root: Path) -> DoctorItem:
     return DoctorItem(f"{SETTINGS_PATH} が gov hook を呼ぶ", ok, "ない、または形式が違う")
 
 
+def _ci_calls_gate(root: Path) -> DoctorItem:
+    workflows = sorted((root / WORKFLOWS_DIR).glob("*.yml"))
+    ok = any(GATE_SCRIPT.as_posix() in w.read_text(encoding="utf-8") for w in workflows)
+    return DoctorItem(f"CI のワークフローが {GATE_SCRIPT} を呼ぶ", ok, "呼んでいない")
+
+
 def _origin_main(root: Path) -> DoctorItem:
     try:
         GitRepo(root, DEFAULT_BASE, "HEAD")
@@ -204,6 +211,7 @@ CHECKS: tuple[Callable[[Path], DoctorItem], ...] = (
     _gate_script,
     _pre_commit,
     _settings,
+    _ci_calls_gate,
     _origin_main,
 )
 

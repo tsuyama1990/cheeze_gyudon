@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from jtc_gov.adapters.cli import main
 from jtc_gov.domain.gates import DELIVERABLES
-from tests.integration.test_repo_git import commit, root  # noqa: F401
+from tests.integration.test_repo_git import commit, git, root  # noqa: F401
 from tests.support.fake_repo import approval_json, design_files, with_approval
 
 Files = Mapping[str, bytes]
@@ -66,6 +66,8 @@ def rule_cases() -> list[object]:
     big_src = {"src/a.py": b"line\n" * 40}
     cases = [
         ("L1-E01", README, {**README, **SRC, **TEST}, 1, "K.a"),
+        ("L1-E46", README, {**README, **TEST}, 1, "K.a"),
+        ("L1-E46-approved", APPROVED, {**APPROVED, **TEST}, 0, ""),
         ("L1-E02", APPROVED, {**APPROVED, **SRC, **TEST}, 0, ""),
         ("L1-E03", stale_spec, {**stale_spec, **SRC, **TEST}, 1, "K.a"),
         (
@@ -142,6 +144,14 @@ def d_cases() -> list[object]:
     }
     swap_head = {**swap_base, **with_approval(OTHER, "open", SPEC_OTHER)}
     second_open = {**APPROVED, **with_approval(OTHER, spec=SPEC_OTHER)}
+    spec2_open = {**README, **with_approval(REQ, spec=SPEC2), **TEST}
+    tag_removed = {**README, **with_approval(REQ, "closed"), **TEST}
+    tampered_close = {
+        **README,
+        **with_approval(REQ, "closed", SPEC2),
+        f".specs/{REQ}/02_system_design.md": b"changed",
+        **TEST,
+    }
     without_approval = {k: v for k, v in APPROVED.items() if k != APPROVAL_PATH}
     cases = [
         ("L1-E06", APPROVED, second_open, 1, "D.d"),
@@ -164,10 +174,18 @@ def d_cases() -> list[object]:
             1,
             "D.c",
         ),
-        ("L1-E15", README, {**README, **closed_with_tests()}, 0, HUMAN),
+        (
+            "L1-E15",
+            {**README, **with_approval(REQ), **TEST},
+            {**README, **closed_with_tests()},
+            0,
+            HUMAN,
+        ),
         ("L1-E16", README, {**README, **legacy}, 0, ""),
         ("L1-E17", APPROVED, {**README, **withdrawn}, 0, ""),
         ("L1-E18", APPROVED, without_approval, 1, "D.delete"),
+        ("L1-E47-tag-removed", spec2_open, tag_removed, 1, "D.c"),
+        ("L1-E47-design-tampered", spec2_open, tampered_close, 1, "D.c"),
         (
             "L1-E19",
             swap_base,
@@ -312,7 +330,13 @@ def test_full_lifecycle(
         ("impl-1", {**README, **with_approval(REQ, spec=SPEC2), **SRC, **TEST}, 0, ""),
         (
             "impl-2",
-            {**README, **with_approval(REQ, spec=SPEC2), **SRC_EDIT, **TEST},
+            {
+                **README,
+                **with_approval(REQ, spec=SPEC2),
+                **SRC_EDIT,
+                **TEST,
+                **make_test_file("REQ-2026-010-F02", "tests/test_b.py"),
+            },
             0,
             "",
         ),
@@ -338,16 +362,31 @@ def test_full_lifecycle(
         assert text in result.output, (name, result.output)
         if code == 0:
             main_sha = head
-    last_tests = {
-        **make_test_file("REQ-2026-010-F01"),
-        **make_test_file("REQ-2026-010-F02", "tests/test_b.py"),
-    }
-    closed = {**README, **with_approval(REQ, "closed", SPEC2), **SRC_EDIT, **last_tests}
+    implemented = steps[3][1]
+    closed = {**implemented, **with_approval(REQ, "closed", SPEC2)}
     head = commit(root, closed, "close")
     result = CliRunner().invoke(main, ["check", "--base", main_sha, "--head", head])
     assert result.exit_code == 0, result.output
-    after = {**closed, "src/a.py": b"x = 3\n", **TEST_EDIT}
+    after = {**closed, "src/a.py": b"x = 3\n", "tests/test_c.py": TEST_EDIT["tests/test_a.py"]}
     head2 = commit(root, after, "after-close")
     late = CliRunner().invoke(main, ["check", "--base", head, "--head", head2])
     assert late.exit_code == 1
     assert "K.a" in late.output
+
+
+@pytest.mark.requirement("REQ-2026-010-F01")
+def test_stale_branch_is_judged_against_the_merge_base(
+    root: Path,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """L1-E48: main moved on (implementation and closing); the topic only edits README."""
+    monkeypatch.chdir(root)
+    commit(root, APPROVED, "base")
+    git(root, "checkout", "-q", "-b", "topic")
+    commit(root, {**APPROVED, "README.md": b"edited\n"}, "topic")
+    git(root, "checkout", "-q", "main")
+    advanced = {**closed_with_tests(), **README, **SRC, **make_test_file("REQ-2026-010-F01")}
+    commit(root, advanced, "main moves on")
+    git(root, "checkout", "-q", "topic")
+    result = CliRunner().invoke(main, ["check", "--base", "main", "--head", "HEAD"])
+    assert result.exit_code == 0, result.output

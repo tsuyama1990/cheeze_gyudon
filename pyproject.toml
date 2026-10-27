@@ -166,10 +166,6 @@ omit = [
 fail_under = 90
 exclude_lines = [
     "pragma: no cover",
-    "def __repr__",
-    "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-    "if __name__ == .__main__.:",
 ]
 
 # ==============================================================================

@@ -19,7 +19,6 @@ class TestFunction:
     tags: tuple[str, ...]
     has_marker: bool
     source_sha: str
-    lineno: int
 
 
 @dataclass(frozen=True)
@@ -105,7 +104,5 @@ def test_functions(source: bytes) -> list[TestFunction] | ParseFailure:
         first = min([node.lineno, *(d.lineno for d in node.decorator_list)])
         end = node.end_lineno or node.lineno
         text = "\n".join(lines[first - 1 : end])
-        result.append(
-            TestFunction(name, marks.tags, marks.has_marker, sha256_hex(text.encode()), node.lineno)
-        )
+        result.append(TestFunction(name, marks.tags, marks.has_marker, sha256_hex(text.encode())))
     return result

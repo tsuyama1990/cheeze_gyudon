@@ -6,20 +6,19 @@ from typing import Any, Final, Literal
 from pydantic import ValidationError
 
 from jtc_gov.derive.hashing import sha256_hex
-from jtc_gov.domain.gates import APPROVAL_FILE, APPROVED_FILE_PATTERN
+from jtc_gov.domain.gates import APPROVAL_FILE, APPROVED_FILE_PATTERN, SPEC_FILE
 from jtc_gov.domain.ids import FEATURE_TAG
 from jtc_gov.domain.models import Approval, ApprovalState, ParseFailure, Ref
 from jtc_gov.domain.repo import Repo
 
 APPROVAL_PATH: Final = re.compile(rf"^\.specs/(REQ-\d{{4}}-\d{{3,}})/{re.escape(APPROVAL_FILE)}\Z")
-_SPEC_FILE: Final = "01_req_spec.md"
 _SPEC_TAG_LINE: Final = re.compile(r"^\s*[-*]\s+\*\*\[(REQ-\d{4}-\d{3,}-F\d{2,})\]")
 _FENCE: Final = "```"
 
 
 @dataclass(frozen=True)
 class Reason:
-    kind: Literal["state", "set", "hash", "parse"]
+    kind: Literal["state", "set", "hash"]
     detail: str
 
 
@@ -86,7 +85,7 @@ def valid_open(repo: Repo, ref: Ref) -> list[Approval]:
 
 
 def spec_tags(repo: Repo, ref: Ref, req: str) -> set[str] | ParseFailure:
-    raw = repo.read(f".specs/{req}/{_SPEC_FILE}", ref)
+    raw = repo.read(f".specs/{req}/{SPEC_FILE}", ref)
     if raw is None:
         return set()
     try:

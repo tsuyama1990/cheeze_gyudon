@@ -1,4 +1,3 @@
-import re
 from collections.abc import Sequence
 
 from jtc_gov.derive.approvals import (
@@ -9,17 +8,15 @@ from jtc_gov.derive.approvals import (
     validity,
 )
 from jtc_gov.derive.markers import test_functions
-from jtc_gov.domain.gates import DELIVERABLES
-from jtc_gov.domain.models import Approval, ApprovalState, Change, Finding, ParseFailure
+from jtc_gov.domain.gates import APPROVED_FILE_PATTERN, DELIVERABLES, SPEC_FILE, is_test_path
+from jtc_gov.domain.models import Approval, ApprovalState, Change, Finding, ParseFailure, Ref
 from jtc_gov.domain.repo import Repo
-
-_TEST_FILE = re.compile(r"^tests/(?:.*/)?test_[^/]*\.py\Z")
 
 
 def _tested_tags(repo: Repo) -> set[str]:
     tags: set[str] = set()
     for path in repo.list("head"):
-        raw = repo.read(path, "head") if _TEST_FILE.match(path) else None
+        raw = repo.read(path, "head") if is_test_path(path) else None
         funcs = test_functions(raw) if raw is not None else []
         if not isinstance(funcs, ParseFailure):
             tags |= {t for f in funcs for t in f.tags}
@@ -42,15 +39,40 @@ def _check_open(repo: Repo, approval: Approval) -> list[Finding]:
     return findings
 
 
+def _was_open(repo: Repo, req: str) -> bool:
+    previous = load_approvals(repo, "base").get(req)
+    return isinstance(previous, Approval) and previous.state is ApprovalState.OPEN
+
+
+def _changed_design_files(repo: Repo, req: str) -> list[Finding]:
+    prefix = f".specs/{req}/"
+    names = {
+        p
+        for ref in ("base", "head")
+        for p in repo.list(ref)
+        if p.startswith(prefix) and APPROVED_FILE_PATTERN.match(p.removeprefix(prefix))
+    }
+    return [
+        Finding("D.c", p, "承認済みの設計は、完了の PR で変更できない")
+        for p in sorted(names)
+        if repo.read(p, "base") != repo.read(p, "head")
+    ]
+
+
 def _check_closed(repo: Repo, approval: Approval) -> list[Finding]:
     req = approval.requirement
-    if repo.read(f".specs/{req}/01_req_spec.md", "head") is None:
-        return [Finding("D.c", f".specs/{req}", "仕様(01_req_spec.md)がない")]
-    tags = spec_tags(repo, "head", req)
+    completing = _was_open(repo, req)
+    ref: Ref = "base" if completing else "head"
+    findings = _changed_design_files(repo, req) if completing else []
+    if repo.read(f".specs/{req}/{SPEC_FILE}", ref) is None:
+        return [*findings, Finding("D.c", f".specs/{req}", f"仕様({SPEC_FILE})がない")]
+    tags = spec_tags(repo, ref, req)
     if isinstance(tags, ParseFailure):
-        return [Finding("D.c", f".specs/{req}", f"仕様が読めない: {tags.reason}")]
+        return [*findings, Finding("D.c", f".specs/{req}", f"仕様が読めない: {tags.reason}")]
     tested = _tested_tags(repo)
-    return [Finding("D.c", f".specs/{req}", f"{t} にテストがない") for t in sorted(tags - tested)]
+    return findings + [
+        Finding("D.c", f".specs/{req}", f"{t} にテストがない") for t in sorted(tags - tested)
+    ]
 
 
 def check_d(repo: Repo, changes: Sequence[Change]) -> list[Finding]:
