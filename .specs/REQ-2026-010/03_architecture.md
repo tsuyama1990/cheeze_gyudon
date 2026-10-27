@@ -25,7 +25,7 @@ L1 の記述と、L2 で分かったことが食い違った箇所。二重管�
 
 ## 1. 型(`domain`)
 
-すべて Pydantic v2(`frozen`、`extra="forbid"`)。JSON スキーマは型から生成する。 [決定: DEC-003、DEC-028]
+`Approval`(外部の JSON を読む型)だけが Pydantic v2(`frozen`、`extra="forbid"`)。JSON スキーマはこの型から生成する。他の型は標準の `frozen` データクラス(YAGNI。L3 §1)。 [決定: DEC-003、DEC-028。L3 の結論による修正]
 
 | 型 | フィールドと制約 |
 |---|---|

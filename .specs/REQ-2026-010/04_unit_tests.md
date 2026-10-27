@@ -26,16 +26,16 @@
 | ID | 対象 | ケース | 期待 | 要件 | 現行 |
 |---|---|---|---|---|---|
 | L3-U08 | `sha256_hex` | 空、LF、CRLF | 既知のダイジェスト。LF と CRLF は違う | F01 | できない |
-| L3-U09 | `parse_approval` | 正常、JSON でない、空、`requirement` がディレクトリ名と違う、Approval の不正(U04 の各ケース) | 正常は `Approval`、他は `ParseFailure`(理由つき) | F02 | できない |
+| L3-U09 | `parse_approval` | 正常、JSON でない、空、`requirement` がディレクトリ名と違う、Approval の不正(U04 の各ケース)、**JSON の重複キー**(`state` が 2 回) | 正常は `Approval`、他は `ParseFailure`(理由つき。重複キーは黙って後勝ちにしない) | F02 | できない |
 | L3-U10 | `load_approvals` | `approval.json` が 0 個、1 個、2 個、壊れたもの 1 個、`approval.json` に似た名前(`approval.json.bak`、`x/approval.json`) | 正確なパスだけを読む。壊れたものは `ParseFailure` で返る | F02 | できない |
 | L3-U11 | `validity` | 状態が `closed`、承認後に `05_*` を足した、承認済みのファイルが消えた、ハッシュが違う、複数の問題が同時、すべて一致 | 一致は空。それ以外は種別ごとの `Reason` が個別に返る | F01 | できない |
 | L3-U12 | `valid_open` | open が 0 個、1 個、2 個、open だが無効なもの、`closed`、壊れた承認 | 有効な open だけ。壊れたものと無効なものは含まれない | F01 | できない |
 | L3-U13 | `spec_tags` | 要件の行(`- **[TAG] 名前**`、`* **[TAG]**`)、本文中の `[TAG]`、フェンスの中の行、形式不正のタグ、重複、`01_req_spec.md` がない、UTF-8 でない | 要件の行の正しいタグだけ。他は拾わない。仕様なし・デコード失敗は空集合 | F03 | できない |
-| L3-U14 | `test_functions`: 抽出 | モジュール直下の `test_a`、`Test*` クラスのメソッド、`Test*` でないクラスの `test_x`、ネストした `test_inner`、`test` で始まらない関数、非同期 | 直下とクラス直下の `test*` だけ。ネストは含まない | F03 | できない |
-| L3-U15 | `test_functions`: marker | `@pytest.mark.requirement("T")`、`@requirement("T")`、複数の marker、引数が変数、引数なし、クラスのデコレータ、`pytestmark = pytest.mark.requirement("T")`、他の marker だけ | リテラルは `tags` に入る。変数・引数なしは `has_marker` だけ真。クラスとモジュールの marker は各関数に加わる。他の marker は無視 | F03 | できない |
+| L3-U14 | `test_functions`: 抽出 | モジュール直下の `test_a`、`Test*` クラスのメソッド、`Test*` でないクラスの `test_x`、ネストした `test_inner`、`test` で始まらない関数、非同期、**モジュール直下の `if`・`try` の中の `def test_*`**、**同名関数の重複定義** | 直下(`if`・`try`・`with` の本体を含む)とクラス直下の `test*` だけ。ネストした関数は含まない。重複は別の項目(`#2`)になる | F03 | できない |
+| L3-U15 | `test_functions`: marker | `@pytest.mark.requirement("T")`、`@requirement("T")`、複数の marker、引数が変数、引数なし、クラスのデコレータ、`pytestmark = pytest.mark.requirement("T")`、**`pytestmark = [pytest.mark.requirement("T"), …]`(リスト・タプル)**、他の marker だけ | リテラルは `tags` に入る。変数・引数なしは `has_marker` だけ真。クラスとモジュールの marker は各関数に加わる。他の marker は無視 | F03 | できない |
 | L3-U16 | `test_functions`: 範囲とハッシュ | デコレータ付き(複数行の `parametrize`)、同じ内容のコメントだけの変更、関数内の 1 文字の変更 | ソースの範囲はデコレータの最初の行から `end_lineno`。関数内の変更で `source_sha` が変わる。関数の外のコメントでは変わらない [データ: R7] | F01 | できない |
 | L3-U17 | `test_functions`: 失敗 | 構文エラー、非 UTF-8 のバイト列、空ファイル | 前 2 つは `ParseFailure`。空は空のリスト [データ: R7] | F03 | できない |
-| L3-U18 | `related_requirements` | `.specs/<REQ>/` の変更、関数の追加、削除、marker の付け替え(A → B)、改名(ファイルを移動)、**複数要件の marker を持つファイルで 1 関数だけ変更**、構文エラーのテスト | 変更された関数の marker の要件だけ。変更していない関数の要件は含まない。構文エラーは無視 | F01 | できない |
+| L3-U18 | `related_requirements` | `.specs/<REQ>/` の変更、関数の追加、削除、marker の付け替え(A → B)、**クラスのデコレータの付け替え**、**モジュールの `pytestmark` の付け替え**、改名(ファイルを移動)、複数要件の marker を持つファイルで 1 関数だけ変更、構文エラーのテスト、不正な形式のタグを含む関数 | 変更された関数の marker の要件だけ(`base` と `head` の両方の実効のタグ)。クラス・モジュールの付け替えも検出する。変更していない関数の要件は含まない。構文エラーは無視。不正な形式のタグは要件に含めない(`ValueError` で落ちない) | F01 | できない |
 | L3-U19 | `display_gate` | ペアの組み合わせ(なし、1 だけ、1 と 2、1〜4 すべて、設計だけ、空ファイル) | 03 §3 のとおり | F06 | できない |
 
 ## 4. `checks`
@@ -49,10 +49,10 @@
 | L3-U24 | K: 改名 | `src/a.py` → `lib/a.py` とテスト変更 | `src/` の変更として扱う(旧パス) | F01 | できない |
 | L3-U25 | D: 削除・改名・構文 | `approval.json` の削除、改名、壊れた JSON | `D.delete`、`D.delete`、`D.parse` | F02 | できない |
 | L3-U26 | D: `open` | ペアが欠ける(ゲートごと、設計だけ、テスト仕様だけ)、空ファイル、ハッシュ不一致、集合不一致、すべて正常 | 欠けているファイルごとに `D.a`、理由ごとに `D.b`、正常は空 | F02 | できない |
-| L3-U27 | D: `closed` | 仕様なし、タグにテストなし(複数)、全タグにテストあり、タグが 0 個の仕様 | 仕様なしは `D.c`、タグごとに `D.c`、全部あれば空。タグ 0 個は空 | F02 | できない |
+| L3-U27 | D: `closed` | 仕様なし、タグにテストなし(複数)、全タグにテストあり、タグが 0 個の仕様、**構文エラーのテストファイルがあるとき** | 仕様なしは `D.c`、タグごとに `D.c`、全部あれば空。タグ 0 個は空。構文エラーのファイルは照合から外れ、落ちずに他の検査が走る | F02 | できない |
 | L3-U28 | D: `withdrawn` | どんな状態でも | 空 | F02 | できない |
 | L3-U29 | D.d | 承認ファイルの変更あり + `head` の open が 0、1、2。承認ファイルの変更なし + open が 2 | 変更ありで 2 以上のときだけ `D.d` | F02 | できない |
-| L3-U30 | T.a | marker なし、引数が変数(`has_marker` だけ真)、形式不正のタグ、正しいタグ、構文エラー | 順に `T.a`(marker なし)、`T.a`(リテラルでない)、`T.a`(形式不正)、通る、`T.a`(ファイル)。理由が区別される | F03 | できない |
+| L3-U30 | T.a | marker なし、引数が変数(`has_marker` だけ真)、形式不正のタグ、正しいタグ、構文エラー、**正しいタグ + 不正なタグが同じ関数にある** | 順に `T.a`(marker なし)、`T.a`(リテラルでない)、`T.a`(形式不正)、通る、`T.a`(ファイル)、`T.a`(形式不正。`ValueError` で落ちない)。理由が区別される | F03 | できない |
 | L3-U31 | T.b | 仕様がない要件のタグ、タグが仕様にない、正常 | `T.b`、`T.b`、空 | F03 | できない |
 | L3-U32 | T.c | `tests/` の外の `test_*.py`、`tests/` の外の `*_test.py`、`conftest.py` | 最初だけ `T.c` | F03 | できない |
 | L3-U33 | `Q.pragma` | 新しい `pragma` 行、既存行の保持、`git add` 前の改名(`deleted` + `added`、同じ行)、追跡された改名、別ファイルへの移動、未追跡の新規ファイルに足す、同じ行を 2 回に増やす、`src/` 外の `.py`、非 UTF-8 | 回数が増えたときだけ `Q.pragma`(超過した分の位置つき)。保持・改名・移動は通る。`src/` 外と非 UTF-8 は無視 | F04 | できない |
@@ -74,7 +74,8 @@
 | L3-U44 | `report.findings_json` | 0 件、複数件 | JSON として読め、`ok`、`findings`、`human_merge` を持つ | F07 | できない |
 | L3-U45 | `report.short_status` / `format_status` | 要件 0、1、2、無効な承認(理由つき) | 3 行以内(short)。理由が出る | F06 | できない |
 | L3-U46 | `render_settings` / `render_gitattributes` | 出力 | `settings` は入れ子形式で `gov hook` を呼ぶ。`.gitattributes` は `.specs/** text eol=lf` を含む | F05 | できない |
-| L3-U47 | `FakeRepo` | `list` の昇順、`changes` の追加・変更・削除・指定した改名、`read` の None | 契約(03 §2)のとおり。実 git との一致は適合テスト(L2-I09) | F01 | できない |
+| L3-U47 | `FakeRepo` | `list` の昇順、`changes` の追加・変更・削除・指定した改名、`read` の None。モードだけの変更は表現しない | 契約(03 §2)のとおり。実 git との一致は適合テスト(L2-I09) | F01 | できない |
+| L3-U48 | `run_check` | `open_repo` が `RepoError` を投げる / 想定外の例外を投げる / 違反あり / 通過、`--json` の有無 | 順に 終了コード 2 と `E.repo` の行、2 と `E.internal`(traceback なし)、1、0。JSON も同じ内容 | F01 | できない |
 
 ## 6. 追跡表(設計 → テスト)
 
@@ -95,7 +96,7 @@
 | §4.5 human_merge | U34 |
 | §4.6 run_all | U35、U36 |
 | §5.2 report | U43〜U45 |
-| §5.3 cli(`render_*`) | U46 |
+| §5.3 cli(`render_*`、`run_check`) | U46、U48 |
 | §5.4 claude_hook | U37〜U42 |
 | §6 FakeRepo | U47 |
 | §5.1 GitRepo | 結合テスト L2-I01〜I09(実 git が必要) |
