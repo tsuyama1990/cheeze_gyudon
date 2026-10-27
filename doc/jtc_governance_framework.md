@@ -1,6 +1,6 @@
 # AI-Driven Development Governance Platform (JTC-Style Governance Framework)
 
-> **Note (2026-10-26).** This is the original requirements outline. It predates the measurements in [as_is_inventory.md](as_is_inventory.md) and [proposal_l1_flow.md](proposal_l1_flow.md). Where they disagree (for example hook behaviour and exit codes), those two documents are correct.
+> **履歴文書(読み取り専用)。** 規範は [.specs/REQ-2026-010/](../.specs/REQ-2026-010/) にある。この文書の内容は、REQ-2026-010 に引き継がれたものと、MVP 外として見送ったもの(Review / red team、scaffold、Phase 5、`sandbox/` など。範囲は `01_req_spec.md` §2)に分かれる。食い違う場合は REQ-2026-010 が正しい。この文書は更新しない(更新すると二重管理になる)。
 
 ## Requirements Definition Outline & Basic Design Document
 

@@ -72,7 +72,7 @@ repos:
         always_run: true
         stages: [commit]
 
-      # Constitution 2: Full Pytest & Strict Branch Coverage (>= 90%)
+      # Constitution 2: Full Pytest & Branch Coverage (threshold: pyproject.toml)
       - id: local-pytest-coverage
         name: "Constitution: Strict Branch Coverage & Unit Tests"
         entry: uv run pytest
