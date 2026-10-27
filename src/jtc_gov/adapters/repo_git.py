@@ -95,3 +95,14 @@ class GitRepo:
             untracked = self._names("ls-files", "-z", "-o", "--exclude-standard")
             out += [Change(None, p, "added") for p in untracked]
         return out
+
+
+def find_root(cwd: Path) -> Path:
+    done = subprocess.run(  # noqa: S603
+        ["git", "-C", str(cwd), "rev-parse", "--show-toplevel"],  # noqa: S607
+        capture_output=True,
+        check=False,
+    )
+    if done.returncode != 0:
+        raise RepoError(done.stderr.decode(errors="replace").strip())
+    return Path(done.stdout.decode().strip())
