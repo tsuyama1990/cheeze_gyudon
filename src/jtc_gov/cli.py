@@ -13,7 +13,7 @@ from jtc_gov.domain.exceptions import (
     StateNotFoundError,
     TraceabilityMismatchError,
 )
-from jtc_gov.domain.models import GateId
+from jtc_gov.domain.legacy_models import GateId
 from jtc_gov.integrations.github.pr_formatter import format_audit_comment
 from jtc_gov.integrations.github.summary_generator import generate_pr_summary
 from jtc_gov.services.decision_engine import draft_decision, load_reviews

@@ -1,49 +1,81 @@
-from datetime import datetime
+import re
+from dataclasses import dataclass
 from enum import StrEnum
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
+from jtc_gov.domain.gates import APPROVED_FILE_PATTERN
+from jtc_gov.domain.ids import RequirementId
 
-class GateId(StrEnum):
-    GATE1_SPEC = "GATE1_SPEC"
-    GATE2_SYSTEM = "GATE2_SYSTEM"
-    GATE3_INTEGRATION = "GATE3_INTEGRATION"
-    GATE4_DETAIL = "GATE4_DETAIL"
-    GATE5_IMPL = "GATE5_IMPL"
-
-
-class RequirementStatus(StrEnum):
-    INIT = "INIT"
-    IN_PROGRESS = "IN_PROGRESS"
-    ROLLBACK = "ROLLBACK"
-    COMPLETED = "COMPLETED"
+Ref = Literal["base", "head"]
+Status = Literal["added", "modified", "deleted", "renamed"]
+Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
 
-class RequirementItem(BaseModel):
-    title: str = Field(strict=True)
-    current_gate: GateId = Field(strict=False)
-    status: RequirementStatus = Field(strict=False)
-    unlocked_paths: list[str] = Field(strict=True, default_factory=list)
-    completed_gates: list[GateId] = Field(default_factory=list)
+@dataclass(frozen=True)
+class Change:
+    old_path: str | None
+    new_path: str | None
+    status: Status
 
-    model_config = {"frozen": True}
+    def __post_init__(self) -> None:
+        old, new = self.old_path is not None, self.new_path is not None
+        valid = {
+            "added": (not old) and new,
+            "deleted": old and not new,
+            "modified": old and new and self.old_path == self.new_path,
+            "renamed": old and new and self.old_path != self.new_path,
+        }[self.status]
+        if not valid:
+            msg = f"invalid change: {self}"
+            raise ValueError(msg)
+
+    def paths(self) -> tuple[str, ...]:
+        return tuple(p for p in (self.old_path, self.new_path) if p is not None)
 
 
-class StateModel(BaseModel):
-    active_requirement_id: str = Field(strict=True)
-    requirements: dict[str, RequirementItem] = Field(strict=False, default_factory=dict)
+class ApprovalState(StrEnum):
+    OPEN = "open"
+    CLOSED = "closed"
+    WITHDRAWN = "withdrawn"
 
-    model_config = {"frozen": True}
+
+class Approval(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    requirement: RequirementId
+    state: ApprovalState = Field(strict=False)
+    files: dict[str, Sha256]
+
+    @field_validator("files")
+    @classmethod
+    def _keys(cls, files: dict[str, str]) -> dict[str, str]:
+        bad = [k for k in files if not re.match(APPROVED_FILE_PATTERN, k)]
+        if bad:
+            msg = f"invalid file keys: {bad}"
+            raise ValueError(msg)
+        return files
 
 
-class GateReviewDeliverable(BaseModel):
-    gate_id: GateId = Field(strict=False)
-    requirement_id: str = Field(strict=True, pattern=r"^REQ-\d{4}-\d{3,}$")
-    reviewer_persona: str = Field(strict=True)
-    status: str = Field(strict=True)
-    design_flaws: list[str] = Field(strict=True, max_length=2, default_factory=list)
-    test_design_flaws: list[str] = Field(strict=True, max_length=2, default_factory=list)
-    accepted_tradeoffs: list[str] = Field(strict=True, default_factory=list)
-    reviewed_at: datetime = Field(strict=False)
+@dataclass(frozen=True)
+class ParseFailure:
+    reason: str
 
-    model_config = {"frozen": True}
+
+@dataclass(frozen=True)
+class Finding:
+    rule: str
+    path: str | None
+    message: str
+    hint: str | None = None
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    findings: tuple[Finding, ...]
+    human_merge: tuple[str, ...]
+
+    @property
+    def ok(self) -> bool:
+        return not self.findings

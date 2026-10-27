@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from jtc_gov.domain.exceptions import GateCheckFailedError, TraceabilityMismatchError
-from jtc_gov.domain.models import GateId, RequirementItem, RequirementStatus, StateModel
+from jtc_gov.domain.legacy_models import GateId, RequirementItem, RequirementStatus, StateModel
 from jtc_gov.services.escalator import escalate
 from jtc_gov.services.gate_keeper import get_unlocked_paths_for_gate, validate_gate
 from jtc_gov.services.tracer import (

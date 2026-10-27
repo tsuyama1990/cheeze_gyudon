@@ -19,7 +19,7 @@
 | L3-U04 | `Approval` の厳格な検証 | 正常、状態が不正、`files` のキーが `0[1-5]_*` でない(サブディレクトリ、`06_x.md`)、ハッシュが大文字、63 桁、余分なキー、`requirement` が不正な形式 | 正常以外は `ValidationError` | F02 | できない |
 | L3-U05 | `CheckResult.ok` | findings が空 / 空でない | 真 / 偽 | F01 | できない |
 | L3-U06 | `DELIVERABLES`・`APPROVED_FILE_PATTERN`・`GUARDED_PREFIX` | ゲート 1〜4 の各ファイル名、`05_decision.md`、`06_x.md`、`notes.md`、`01_notes/extra.md` | パターンへの一致が 03 §1.1・§4.1 のとおり | F02 | できない |
-| L3-U07 | `machinery_reason` | 02 §4.4 の全パターンの代表パス、`.gitattributes`、`src/jtc_gov/adapters/cli.py`、`src/other/x.py`、`docs/x.md`、`.github/workflows/x.yml`、`scripts/gate.sh`、ルート直下の `conftest.py` と `tests/sub/conftest.py`、`.specs/REQ-2026-010/approval.json`(これは `human_merge` 側) | 当たるものは表示名、それ以外は None。`*` が `/` を越えないこと(`scripts/*` と `scripts/a/b.py`) | F07 | できない |
+| L3-U07 | `machinery_reason` | 02 §4.4 の全パターンの代表パス、`.gitattributes`、`src/jtc_gov/adapters/cli.py`、`src/other/x.py`、`docs/x.md`、`.github/workflows/x.yml`、`scripts/gate.sh`、ルート直下の `conftest.py` と `tests/sub/conftest.py`、`.specs/REQ-2026-010/approval.json`(これは `human_merge` 側) | 当たるものは表示名、それ以外は None。ルート直下以外の `conftest.py` も当たり、`xconftest.py` は当たらない | F07 | できない |
 
 ## 3. `derive`
 

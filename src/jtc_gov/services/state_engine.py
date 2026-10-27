@@ -4,7 +4,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from jtc_gov.domain.exceptions import StateCorruptedError, StateNotFoundError
-from jtc_gov.domain.models import RequirementItem, StateModel
+from jtc_gov.domain.legacy_models import RequirementItem, StateModel
 
 
 def get_state_path() -> Path:
