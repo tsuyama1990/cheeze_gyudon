@@ -187,14 +187,14 @@ def run_all(repo: Repo) -> CheckResult:
 ### 5.1 `adapters/repo_git.py`
 ```python
 class GitRepo:
-    def __init__(self, root: Path, base: str, head: str | Literal["worktree"]) -> None
+    def __init__(self, root: Path, base: str, head: str) -> None   # head は "worktree" か、リビジョン
     def read(self, path: str, ref: Ref) -> bytes | None
     def list(self, ref: Ref) -> Sequence[str]
     def changes(self) -> Sequence[Change]
 ```
 - `_git(*args: str) -> bytes`: `subprocess.run(["git", "-C", str(root), "-c", "core.quotepath=off", *args], capture_output=True, check=False)`。終了コードが 0 でなければ `RepoError(標準エラー)`。`FileNotFoundError`(`git` がない)と `OSError` も `RepoError` にする。シェルを使わない。 [レビュー指摘 I-05]
 - 起動時に、`git rev-parse --verify <base>^{commit}` で `base` を確かめる(なければ `RepoError`)。`head` が `worktree` でなければ、同様に確かめる。
-- `read(path, ref)`: `ref` が `base` または `head` がコミットのとき `git show <rev>:<path>`(存在しなければ None。`git cat-file -e` で確認)。`head=worktree` のときは、`list("head")` に含まれるパスだけを読む: シンボリックリンクなら `os.fsencode(os.readlink(path))`、通常のファイルなら内容(バイト列)。含まれなければ None。 [データ: R6、リンクは git の扱いと同じ]
+- `read(path, ref)`: `ref` が `base` または `head` がコミットのとき `git ls-tree <rev> -- <path>` で確認し(出力が空なら None、モードが 160000(サブモジュール)なら `RepoError`)、`git show <rev>:<path>` で読む。`head=worktree` のときは、`list("head")` に含まれるパスだけを読む: シンボリックリンクなら `os.fsencode(os.readlink(path))`、通常のファイルなら内容(バイト列)。含まれなければ None。 [データ: R6、リンクは git の扱いと同じ]
 - サブモジュール(gitlink)は対象外(MVP。`ls-tree` が返しても `read` は `RepoError`)。 [レビュー R2-14]
 - `list(ref)`: コミットのとき `git ls-tree -r --name-only -z <rev>` を**昇順に並べる**(ls-tree の順はフルパス昇順を保証しない)。`worktree` のときは `git ls-files -z -c -o --exclude-standard` から、`git ls-files -z -d`(作業ツリーで削除されたもの)を引き、**昇順に並べる**。 [データ: R6、`ls-files -c -o` は削除済みの追跡ファイルを含み、昇順でもない]
 - `changes()`: `git diff -M --name-status -z <base> <head>`(コミットのとき)または `git diff -M --name-status -z <base>`(`worktree` のとき)を解析する。形式は、状態、NUL、パス、NUL(`R`・`C` は旧パス、NUL、新パス、NUL)。`A` → added(`old_path=None`)、`M`・`T` → modified(`old_path` と `new_path` に**同じパス**)、`D` → deleted(`new_path=None`)、`R*` → renamed(旧、新)。それ以外の状態(`C*` を含む。`-M` ではコピーは検出されない)が出たら `RepoError("unsupported status")`。 [レビュー指摘 L-01]`worktree` のときは、これに加えて、`git ls-files -z -o --exclude-standard` の未追跡ファイルを `added` として足す。**ステージ前の改名は、`deleted`(旧)と `added`(未追跡の新)の組になる**(これは `Q.pragma` が改名に強い定義で吸収する)。 [データ: R6]
