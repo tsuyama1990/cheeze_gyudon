@@ -73,7 +73,7 @@
 | L3-U43 | `report.format_findings` | 0 件、複数件、`path` が None、`human_merge` あり | 1 行 1 件の形式(`path` が None なら `<rule>: <message>`)。最後に「人間のマージが必要」の行(あるときだけ) | F07 | できない |
 | L3-U44 | `report.findings_json` | 0 件、複数件 | JSON として読め、`ok`、`findings`、`human_merge` を持つ | F07 | できない |
 | L3-U45 | `report.short_status` / `format_status` | 要件 0、1、2、無効な承認(理由つき)、`src/` を変えてよいか(open が 1 つ / 0 / 2) | 3 行以内(short)。理由が出る | F06 | できない |
-| L3-U46 | `render_settings` / `render_gitattributes` | 出力 | `settings` は入れ子形式で `gov hook` を呼ぶ。`.gitattributes` は `.specs/** text eol=lf` を含む | F05 | できない |
+| L3-U46 | `render_settings(command)` / `render_gitattributes` | 既定の command、`command="gov"` | `settings` は入れ子形式で `<command> hook <event>` を呼ぶ(既定は `.venv/bin/gov`、`gov` なら PATH から)。`.gitattributes` は `.specs/** text eol=lf` を含む | F05 | できない |
 | L3-U47 | `FakeRepo`、`GitRepo.changes` のフィールド(added は old=None、modified は同じパス、deleted は new=None) | `list` の昇順、`changes` の追加・変更・削除・指定した改名、`read` の None。モードだけの変更は表現しない | 契約(03 §2)のとおり。実 git との一致は適合テスト(L2-I09) | F01 | できない |
 | L3-U48 | `run_check` | `open_repo` が `RepoError` を投げる / 想定外の例外を投げる / 違反あり / 通過、`--json` の有無 | 順に 終了コード 2 と `E.repo` の行、2 と `E.internal`(traceback なし)、1、0。JSON も同じ内容 | F01 | できない |
 | L3-U49 | `changed_test_functions` | 新規ファイル、既存ファイルに関数を足す、既存関数の本体の書き換え、marker の付け替え、削除だけ、ファイルの改名だけ、関数の改名、解析失敗 | 順に 真、真、真、真、偽、偽、真、偽 | F01 | できない |

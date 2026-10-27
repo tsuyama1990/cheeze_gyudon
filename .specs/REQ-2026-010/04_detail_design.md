@@ -220,7 +220,7 @@ def short_status(repo: Repo) -> str                    # 3 行以内。フック
 `click` のグループ `main`。コマンド `check`、`status`、`init`、`doctor`、`hook`(03 §6)。
 - `_open_repo(base, head) -> GitRepo`: `Path.cwd()` から `git rev-parse --show-toplevel` でルートを求める。
 - `check`: 純粋に近い関数 `run_check(open_repo: Callable[[], Repo], as_json: bool) -> tuple[int, str]` に委ねる(単体テストできるように)。`open_repo()` と `run_all` を実行し、`RepoError` は `Finding(rule="E.repo", message=…)` にして出力し終了コード 2、**`gov` 自身の想定外の例外も `Finding(rule="E.internal")` にして終了コード 2**(traceback は出さない。`--debug` なら出す)、`result.ok` でなければ 1、それ以外は 0。出力は `format_findings` または `findings_json`。`E.repo` と `E.internal` は評価できなかったことを表す。 [レビュー指摘 I-05。03 §9 の「`E.repo`、終了コード 2」の実装]
-- `init`: `.claude/settings.json` と `.gitattributes` の内容を生成する関数 `render_settings() -> str`、`render_gitattributes() -> str`(純粋)を呼び、書き込む。既存ファイルと内容が違えば、書かずに差分を出して終了コード 1。同じなら何もしない。
+- `init`: `.claude/settings.json` と `.gitattributes` の内容を生成する関数 `render_settings(command: str = DEFAULT_HOOK_BIN) -> str`(`command` はフックが呼ぶ実行ファイル。各フックの command は `f"{command} hook <event>"`)、`render_gitattributes() -> str`(純粋)を呼び、書き込む。`init` は `--bin` オプション(既定は `DEFAULT_HOOK_BIN` = `"$CLAUDE_PROJECT_DIR"/.venv/bin/gov`)を `render_settings` に渡す。既存ファイルと内容が違えば、書かずに差分を出して終了コード 1。同じなら何もしない。
 - `doctor`: 検査を関数の一覧 `CHECKS: list[Callable[[Path], DoctorItem]]` として持つ。項目は 03 §6 と spirals.md §2。`gate.sh` が存在し実行可能、`.pre-commit-config.yaml` が衛生フックだけ(ruff、mypy、vulture、pytest、`gate.sh`、`gov check` を持たない)、`.claude/settings.json` が入れ子形式で `gov hook` を呼ぶ、`.github/workflows/` の `*.yml`・`*.yaml` のいずれかが(コメント行を除いて)`scripts/gate.sh` を呼ぶ(読めないファイルは呼んでいないものとして数える)、`origin/main` が解決できる。
 
 ### 5.4 `adapters/claude_hook.py`
