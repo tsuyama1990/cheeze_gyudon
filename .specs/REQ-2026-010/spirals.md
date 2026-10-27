@@ -30,8 +30,8 @@
 | 品質ゲートの入口が 1 つで、実行可能 | `ls -l scripts/gate.sh`、`git ls-files -s scripts/gate.sh` が 100755 | 解消。以前は `verify_all.sh` で、全体設定が呼ぶ `gate.sh` が存在しなかった |
 | 全体設定の終了時フックが `gate.sh` を呼ぶ | 模擬入力で `~/.claude/hooks/stop_gate.sh` を `bash -x` で実行し、`scripts/gate.sh` の実行を見る | 確認。トレースに `scripts/gate.sh` の実行と、通過後の失敗カウンタ削除がある |
 | マージスクリプトが `gate.sh` を呼ぶ | マージ時に `/tmp/merge-to-main-gate.log` ができる | 確認。4070e44 のマージで、ログに SUCCESS が残った |
-| CI が `gate.sh` を呼ぶ | `gh run view` のログに gate の出力がある | 次の push の後で確認 |
-| フックが有効(Claude Code が読む) | `claude -p` で実際に拒否される(L1-M01) | 未接続。`.claude/settings.json` がない |
+| CI が `gate.sh` を呼ぶ | `gh run view` のログに gate の出力がある | 確認(2026-10-27 の PR #9、`gov check` と変更行カバレッジを含む全ステップ。別リポジトリ matome でも 2026-10-28 に確認) |
+| フックが有効(Claude Code が読む) | 実機の Claude Code で拒否される(L1-M01) | 確認(2026-10-27。この会話の中で、K・D の違反の commit が exit 2 で拒否された) |
 | `main` が保護されている | `gh api repos/.../rulesets` | 適用済み(2026-10-27、DEC-040。管理者はバイパス) |
 | git のフックが導入されている | `ls .git/hooks`、`gov doctor` | 未導入 |
 
@@ -71,8 +71,10 @@
 | 2 | L2(詳細設計)と、結合テスト仕様 | **設計書は完了**(DeepSeek のレビュー 2 回、致命 0。[reviews/](reviews/))。承認済み(DEC-036)。小さな問い Q-L2-4〜8 は DEC-031〜035 |
 | 3 | L3(クラス設計)と、単体テスト仕様(`04_detail_design.md`、`04_unit_tests.md`) | **設計書は完了**(DeepSeek のレビュー 2 回、致命 0)。承認済み(DEC-036) |
 | 4 | 実装(02 §11)。`domain`・`derive`・`checks`・`repo_git`・`gov check/status` を実装し、v1 を削除(マージ済み) | 進行中。L1 の E2E は `tests/e2e/`、構造検査は `tests/unit/test_structure.py` に実装済み(E01〜E25、E27、E29、E30、E34、E36、E43〜E45、S01〜S04)。`gov hook`・`init`・`doctor` と、そのテスト(E37〜E40、E42、I01、I29〜I37、I43、I44、I50)も実装済み。変更行カバレッジと Q のツール(E26、E28、E31〜E33)は `tests/e2e/test_quality_gate.py` に実装済み。`main` の ruleset は適用済み(DEC-040)。手動確認 M01(実機の `claude -p`)は未実施 |
-| 5 | 全体レビュー 1 回目(Opus、DeepSeek)と、設計の改訂 2(DEC-041、DEC-042)。続いて実装の修正と、承認の更新 | 進行中。次は、改訂後の全体レビューを 1 回ずつ |
-| 6 | テスト仕様の監査(DEC-045)。仕様の食い違いを直し、足りないテストを足し、仕様の ID を `spec` marker で追跡して機械検査する | 完了。次は、改訂後の全体レビューを DeepSeek と Opus で 1 回ずつ |
+| 5a | 全体レビュー 1 回目(Opus、DeepSeek)→ 設計の改訂 2(DEC-041、DEC-042)→ 実装の修正 | 完了 |
+| 5b | 全体レビュー 2 回目(Opus、DeepSeek)→ 設計の改訂 3(DEC-043、DEC-044)→ 実装の修正 | 完了 |
+| 6 | テスト仕様の監査(DEC-045)。仕様の食い違いを直し、足りないテストを足し、仕様の ID を `spec` marker で追跡して機械検査する | 完了 |
+| 7 | 別リポジトリ(matome)での試用。導入、設計、antigravity での実装、CI の実走。発見は backlog B-15 | 完了。`gov init --bin`(DEC-046)を足した |
 
 ## 5. スパイラル 2(L2)の計画
 

@@ -216,7 +216,7 @@ for t in head_count: if head_count[t] > base_count.get(t, 0): Finding(Q.pragma, 
 |---|---|---|
 | `gov check [--base REF] [--head worktree\|HEAD\|REF] [--json]` | K・D・T と、Q の内容検査(Q.pragma)を実行する。DEC-029 の「`check`(K・D・T・Q)」の Q は、この内容検査を指す。Q のツール(lint、型、テスト、カバレッジ)は `gate.sh` が実行する。既定は `--base origin/main --head worktree`。出力は 1 行 1 Finding: `<rule> <path>: <message>`。最後に「人間のマージが必要: <理由>」を出す。`--json` は `{"ok", "findings", "human_merge"}` | 0: 通過 / 1: 規則違反あり / 2: 評価できない(`RepoError` など) |
 | `gov status [--head ...]` | 要件ごとに、状態、承認の有効/失効(理由つき)、表示用の現在ゲート、「テストまたは仕様も変える `src/` の変更が可能か」を表示する。`state.json` を書かない | 0 / 2 |
-| `gov init` | `.claude/settings.json`(入れ子形式のフック設定)と、`.gitattributes`(`.specs/** text eol=lf`)を作る。既存のファイルは上書きせず、差分を表示して終了コード 1 | 0 / 1 |
+| `gov init [--bin COMMAND]` | `.claude/settings.json`(入れ子形式のフック設定)と、`.gitattributes`(`.specs/** text eol=lf`)を作る。フックが呼ぶ実行ファイル(`--bin`)の既定は `"$CLAUDE_PROJECT_DIR"/.venv/bin/gov`(このリポジトリ自身の形)。`uv tool install` で入れた `gov` を使うリポジトリは `--bin gov`(PATH から探す)を指定する。既存のファイルは上書きせず、差分を表示して終了コード 1 | 0 / 1 |
 | `gov doctor` | 前提の検査(spirals.md §2 の preflight のうち機械で確かめられるもの)を実行する。項目: `gate.sh` が実行可能、pre-commit が衛生フックだけ、`.claude/settings.json` が `gov hook` を呼ぶ、CI のワークフロー(`.github/workflows/*.yml` と `*.yaml`。コメント行は無視し、読めないファイルは呼んでいないものとして数える)が `scripts/gate.sh` を呼ぶ、`origin/main` が解決できる。全体設定(Stop フック、マージスクリプト)は、リポジトリの外なので検査しない | 0 / 1 |
 | `gov hook <event>` | フックの入口(§7)。`event` は `pre-tool-use`、`session-start`、`user-prompt-submit` | §7 |
 
@@ -239,7 +239,7 @@ for t in head_count: if head_count[t] > base_count.get(t, 0): Finding(Q.pragma, 
 
 - **内部エラーの扱い**: ローカルのフックは助言なので(DEC-002)、`gov` 自身のエラー(例外、`RepoError` を含む)では**拒否しない**。拒否系は、終了コード 0 と標準エラーの警告「gov hook: 検査を実行できませんでした: …(権威は CI)」を返す。通知系は、何も出さずに終了コード 0。拒否するのは、規則違反(Finding)があるときだけ。権威は CI で、`gov check` の評価不能は終了コード 2 の失敗になる。 [決定の適用: DEC-002。提案: Q-L2-7。レビュー指摘 MAJ-9]
 - `Stop` はプロジェクトでは置かない(§0 #2)。全体設定の `Stop` フックが `scripts/gate.sh` を呼ぶ。
-- 設定ファイル `.claude/settings.json` は入れ子形式で、`gov hook <event>` を呼ぶ。内容は `gov init` が出す。この文書には複製しない。呼び出しは `$CLAUDE_PROJECT_DIR/.venv/bin/gov` とする。`uv run` は失敗すると終了コード 2 を返し、すべてのツール呼び出しを止めてしまうため(実行ファイルがなければ 127 で、拒否にならない)。 [DEC-039]
+- 設定ファイル `.claude/settings.json` は入れ子形式で、`gov hook <event>` を呼ぶ。内容は `gov init` が出す。この文書には複製しない。呼び出しの既定は `$CLAUDE_PROJECT_DIR/.venv/bin/gov` とし、別のリポジトリに導入するときは `gov init --bin gov` で PATH 上の `gov` にする(実行ファイルがなければ 127 で拒否にならない点は同じ)。`uv run` は失敗すると終了コード 2 を返し、すべてのツール呼び出しを止めてしまうため(実行ファイルがなければ 127 で、拒否にならない)。 [DEC-039]
 
 ---
 
