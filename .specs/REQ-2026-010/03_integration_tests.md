@@ -30,9 +30,9 @@
 | L2-I10 | `parse_approval`: 正常、`requirement` がディレクトリ名と違う、余分なキー、ハッシュが大文字、ハッシュが 64 桁でない、`files` のキーにサブディレクトリ、JSON でない | 正常以外は `ParseFailure`(理由つき) | F02 | できない |
 | L2-I11 | `validity`: 状態が `open` でない、承認後に `0N_*` を足した、承認済みのファイルがない、ハッシュが違う、すべて一致 | 一致以外は無効。理由が個別に返る | F01 | できない |
 | L2-I12 | `valid_open`: 0 個、1 個、2 個、壊れた承認を含む | 壊れたものは含まれない。数が正しい | F01 | できない |
-| L2-I13 | `spec_tags`: 通常、小文字、コードブロック内、同じタグの重複、形式不正 | 形式が正しいタグの集合 | F03 | できない |
+| L2-I13 | `spec_tags`: 要件の行(`- **[TAG]`)、本文中の例示のタグ、フェンスのコードブロック内のタグ、小文字、同じタグの重複、形式不正 | 要件の行の、形式が正しいタグだけ。例示とコードブロックのタグは拾わない | F03 | できない |
 | L2-I14 | `markers`: デコレータの 3 形式、クラスのデコレータ、`pytestmark`、引数が文字列でない、複数の marker、非同期テスト、ネストした関数、構文エラー | 03 §3.1 のとおり | F03 | できない |
-| L2-I15 | `related_requirements`: `.specs/<REQ>/` の変更、テストの marker、両方、**テストの削除**、marker の付け替え(A → B) | 要件 ID の集合。削除と付け替えは `base` の marker も含む | F01 | できない |
+| L2-I15 | `related_requirements`: `.specs/<REQ>/` の変更、テストの marker、両方、**テストの削除**、marker の付け替え(A → B)、**複数の要件の marker を含む 1 つのファイルで、別の要件の関数は変えずに 1 つだけ足す** | 要件 ID の集合。削除と付け替えは `base` の marker も含む。変更していない関数の marker は含まない | F01 | できない |
 | L2-I16 | `display_gate`: 6 通り以上のペアの組み合わせ | 最小の未完了ゲート。すべてそろえば 5 | F06 | できない |
 
 ## 4. `checks`(03 §4)
@@ -40,14 +40,14 @@
 | ID | 確認内容 | 期待 | 要件 | 現行 |
 |---|---|---|---|---|
 | L2-I17 | K の真理値表: (`src/` の変更の有無)×(`tests/` または `.specs/` の変更の有無)×(有効な承認 0 / 1 / 2) | 適用外は空。適用で 1 個以外は `K.a` | F01 | できない |
-| L2-I18 | K.b: `approval.json` の変更、承認済みファイルの変更、承認済みファイルの改名、マニフェストにない `05_*` の追加、`0[1-5]_*` に当たらないファイル(`.specs/<REQ>/notes.md`)の変更 | 前 4 者は `K.b`、最後は通る | F01 | できない |
+| L2-I18 | K.b: `approval.json` の変更、承認済みファイルの変更、承認済みファイルの改名、マニフェストにない `05_*` の追加、`0[1-5]_*` で始まるディレクトリの下のファイル(`.specs/<REQ>/01_req_spec_notes/extra.md`)の追加、`0[1-5]_*` に当たらないファイル(`.specs/<REQ>/notes.md`)の変更 | 前 5 者は `K.b`、最後は通る | F01 | できない |
 | L2-I19 | K.c: 別要件のテストの marker、別要件の `.specs/`、別要件のテストの削除 | `K.c` | F01 | できない |
 | L2-I20 | D の全行: 削除、改名、`parse` 失敗、`open` でペア欠け、ハッシュ不一致、集合不一致、2 つ目の `open`、`closed` で仕様なし、`closed` でタグにテストなし、`closed` で全タグにテストあり、`withdrawn` | 03 §4.2 の表どおり | F02 | できない |
 | L2-I21 | `D.d`: 無効な `open` が 1 つ、有効な `open` が 1 つ、`open` が 2 つ。`closed` の `approval.json` を変更して、`head` に `open` が 2 つ残っている | 2 つ以上のときだけ失敗(変更した承認の状態は問わない) | F02 | できない |
 | L2-I22 | T の全行: `tests/` の外の `test_*.py`、marker なし、形式不正、仕様なし、タグが仕様にない、構文エラー。`*_test.py` は対象外(収集されない) | 03 §4.3 の表どおり | F03 | できない |
 | L2-I23 | `human_merge`: 02 §4.4 の全パターン(`.gitattributes`、`src/jtc_gov/**` の下の `adapters/cli.py` を含む)、`approval.json`、無関係なパス | 前者は理由つき、無関係は空 | F07 | できない |
 | L2-I24 | `run_all`: K が失敗しても D と T と Q.pragma が実行される | 4 つの検査の Finding が連結される | F01 | できない |
-| L2-I48 | `Q.pragma`: 追加行に `# pragma: no cover`、既存の `pragma` 行の保持、改名だけ、未追跡の新規ファイルに追加。CI のクリーンなマージ結果のチェックアウトでも実行 | 追加行だけが `Q.pragma`。既存行の保持と改名だけは通る。CI でも検出する | F04 | できない |
+| L2-I48 | `Q.pragma`: `pragma` 行を新しく足す、既存の `pragma` 行の保持、**`git add` の前の改名(deleted + 未追跡)と、追跡された改名**、未追跡の新規ファイルに足す、別ファイルへの移動。CI のクリーンなマージ結果のチェックアウトでも実行 | 回数が増えたときだけ `Q.pragma`。保持、改名、移動は通る。作業ツリーと CI で結果が一致する | F04 | できない |
 
 ## 5. コマンド(03 §6)
 
@@ -65,7 +65,7 @@
 | ID | 確認内容 | 期待 | 要件 | 現行 |
 |---|---|---|---|---|
 | L2-I31 | `pre-tool-use`(書き込み): `src/` 内、`src/` 外、絶対パス、リポジトリの外のパス、`.specs/` が無い、承認が有効で 1 つ | `src/` 内で承認が 1 つでなければ標準出力に通知。それ以外は出力なし。常に終了コード 0 | F05 | できない |
-| L2-I32 | `pre-tool-use`(Bash)の判定表: `git commit -m x`、`git -C . commit`、`git add . && git commit`、`git commit -a`、`git push origin x`、`command git commit`、`env git push`、`(git commit)`、複数行の `git commit`、`echo "git commit"`、`git stash`、`git status` | commit と push(`command`、`env`、サブシェル、複数行を含む)は対象。`echo "git commit"` も対象(偽陽性を許す。検査が通れば拒否しない)。`git stash`、`git status` は対象外 | F05 | できない |
+| L2-I32 | `pre-tool-use`(Bash)の判定表: `git commit -m x`、`git -C . commit`、`git add . && git commit`、`git commit -a`、`git push origin x`、`command git commit`、`env git push`、`(git commit)`、複数行の `git commit`、`echo "git commit"`、`git stash`、`git status` | commit と push(`command`、`env`、サブシェル、複数行を含む)は対象。`echo "git commit"`、`bash -c "git commit"` も対象(偽陽性を許す。検査が通れば拒否しない)。`git stash`、`git status` は対象外 | F05 | できない |
 | L2-I33 | commit: 作業ツリーに未承認の `src/` とテストの変更 / 承認が有効 | 前者は終了コード 2 と標準エラーの文面、後者は 0 | F05 | できない |
 | L2-I34 | push: HEAD に未承認の変更 / 作業ツリーだけにある変更 | 前者は 2、後者は 0 | F05 | できない |
 | L2-I35 | 拒否系で `gov` が例外を出す(`base` なしを含む) | 拒否しない(終了コード 0)。標準エラーに警告が出る | F05 | できない |
@@ -83,7 +83,7 @@
 | L2-I40 | `GATE_BASE` の指定。`origin/main` 以外(例: `origin/release`)を指定する | `gov check --base` と `diff-cover --compare-branch` の両方に反映される | F09 | できない |
 | L2-I41 | 変更行のカバレッジの閾値が設定にない / `--fail-under` が付かない | `gate.sh` が失敗する(閾値なしで通さない) | F04 | できない |
 | L2-I42 | `gate.sh` の `diff-cover` が `--include-untracked` 付きで、`coverage.xml` の `src/` の行だけを対象にする | 未追跡の新規 `src/` ファイルの未カバー行で失敗。テストコードの行は対象外 | F04 | できない |
-| L2-I43 | `.pre-commit-config.yaml` が衛生フックだけで、ruff、mypy、vulture、pytest を持たない。`gate.sh` が pre-commit を呼んでも再帰しない | 設定の検査 | F09 | できない(現行は重複して持つ) |
+| L2-I43 | `.pre-commit-config.yaml` が衛生フックだけで、ruff、mypy、vulture、pytest を持たない。`gate.sh` と `gov check` を呼ぶフックも持たない(再帰しない)。`gov doctor` がそれを検査する | 設定の検査 | F09 | できない(現行は重複して持つ) |
 | L2-I44 | `.github/workflows/` が `scripts/gate.sh` だけを呼び、ジョブ ID は `gate-verification`、`fetch-depth: 0` | 設定の検査 | F09 | 部分的 |
 
 ## 8. ハッシュとファイル形式(03 §10)

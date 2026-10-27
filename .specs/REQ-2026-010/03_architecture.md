@@ -95,15 +95,16 @@ class Repo(Protocol):
 | `parse_approval(raw, dir_name)` | JSON を strict に読む。`requirement` がディレクトリ名と一致すること。`files` のキーとハッシュの形式。余分なキーは失敗 |
 | `validity(repo, ref, approval)` | `(有効か, 理由の一覧)`。有効 = 状態が `open`、`files` のキー集合が `.specs/<REQ>/` 直下の `0[1-5]_*` の集合と一致、各ファイルの SHA-256 が一致。理由は個別に返す(状態、集合の不一致、ハッシュの不一致) |
 | `valid_open(repo, ref)` | 有効な承認の一覧(`open` かつ有効) |
-| `spec_tags(repo, ref, req)` | `.specs/<REQ>/01_req_spec.md` から、正規表現 `\[(REQ-\d{4}-\d{3,}-F\d{2,})\]` に当たるタグの集合 |
+| `spec_tags(repo, ref, req)` | `.specs/<REQ>/01_req_spec.md` の**要件の行**(行頭が `- **[TAG]` の形。フェンスで囲んだコードブロックの中は除く)から、`REQ-\d{4}-\d{3,}-F\d{2,}` に当たるタグの集合。本文中の例示のタグは拾わない |
 | `markers(source: bytes)` | テストのソースを `ast` で解析し、テスト関数ごとに、`requirement` marker のタグの一覧を返す(下) |
-| `related_requirements(repo, changes)` | 変更に含まれる `.specs/<REQ>/` のパスと、変更されたテストファイルの marker から、要件 ID の集合。テストの marker は `base` と `head` の**両方**から集める(削除、改名、marker の付け替えを見落とさないため) |
+| `related_requirements(repo, changes)` | 変更に含まれる `.specs/<REQ>/` のパスと、**変更されたテスト関数**の marker から、要件 ID の集合。変更されたテスト関数 = 同じ名前(クラス内はクラス名つき)の関数のソースが `base` と `head` で違うもの、または片方にしかないもの。marker は `base` と `head` の**両方**から集める(削除、改名、marker の付け替えを見落とさず、複数の要件の marker を含むファイルの、無関係な関数を巻き込まないため) |
 | `display_gate(repo, ref, req)` | ペア(1.1)がそろっていない最小のゲート。すべてそろっていれば 5(表示用。CI の合否に使わない) |
 
 ### 3.1 marker の読み取り
 - テスト関数 = `tests/**` の `test_*.py` のうち、モジュール直下の `test*` 関数と、`Test*` クラス内の `test*` メソッド(`pyproject.toml` の pytest 設定に合わせる)。 [データ: 現行の設定は `python_files = ["test_*.py"]`]
 - marker = デコレータ `@pytest.mark.requirement("TAG")` または `@requirement("TAG")`。クラスのデコレータは、そのクラスのメソッドに適用される。モジュールの `pytestmark = pytest.mark.requirement("TAG")` は、そのファイルの全テストに適用される。引数が文字列リテラルでないものは、タグなしとして扱う。
 - 1 つの関数に複数の marker があってよい。
+- `markers(source)` は、関数ごとに(名前、marker のタグの一覧、ソースの SHA-256)を返す。ソースは、関数のデコレータ行から末尾まで。
 - 解析できないソース(構文エラー)は `ParseFailure` として、T で失敗にする。
 
 ---
@@ -123,7 +124,7 @@ if len(opens) != 1: Finding(K.a, "有効な承認が {n} 個") ; return
 req, manifest = opens[0]
 
 for p in すべての Change の paths():
-    if p == ".specs/<req>/approval.json" or p が r"^\.specs/<req>/0[1-5]_[^/]*$" に一致: Finding(K.b, path=p)
+    if p == ".specs/<req>/approval.json" or p が r"^\.specs/<req>/0[1-5]_" に一致(`0[1-5]_` で始まるディレクトリの下も含む): Finding(K.b, path=p)
 
 extra = related_requirements(repo, changes) - {req}
 for r in extra: Finding(K.c, "要件 {r} は承認された要件の外")
@@ -162,7 +163,18 @@ for r in extra: Finding(K.c, "要件 {r} は承認された要件の外")
 `human_merge(changes)`: 全 Change の `paths()` が、1.2 のパターンまたは `.specs/*/approval.json` に当たるなら、その理由(パターン名)を `CheckResult.human_merge` に入れる。失敗にはしない(規約 C2、C3)。
 
 ### 4.5 Q.pragma(内容検査)
-`src/` の追加行に `# pragma: no cover` がないかを検査する。`Repo` を使い、`changes()` の各 Change について、`base` の内容と `head` の内容の行を比べて、追加された行に `pragma: no cover` があれば `Q.pragma`(パス、行番号)。`added` は全行が追加行。`renamed` は内容の差分だけ。未追跡の新規ファイルも `changes()` に含まれるので見落とさない。 [レビュー指摘 CR-1: シェルの `git diff` は CI のクリーンなチェックアウトで空になる]
+`# pragma: no cover` が**増えていないか**を検査する。`Repo` だけを使い、改名や移動に強い定義にする。
+
+```
+changed_old = {c.old_path for c in changes if c.old_path が "src/" 配下の .py}
+changed_new = {c.new_path for c in changes if c.new_path が "src/" 配下の .py}
+base_count[t] = changed_old の各ファイル(base)で、正規化した行 t(前後の空白を除く)が "pragma: no cover" を含む回数の合計
+head_count[t] = changed_new の各ファイル(head)での同じ回数の合計
+for t in head_count: if head_count[t] > base_count.get(t, 0): Finding(Q.pragma, path, 行番号, 超過した分)
+```
+- 改名や移動(`git add` の前の、deleted + 未追跡の新規ファイルを含む)では、同じ行が両側に同数ある。増えていないので失敗しない。作業ツリーと CI(追跡された改名)で結果が割れない。
+- 未追跡の新規ファイルに `pragma` を足すと、`base` に同じ行がないので失敗する。
+- 同じ行を別の場所へ移し、別の場所に同じ文面を足すと、回数が同じなら通る。これは受け入れる(厳密な追跡はしない)。 [レビュー指摘 CR-1、NEW-03]
 
 ### 4.6 実行
 `run_all(repo) -> CheckResult` は K、D、T、Q.pragma を順に実行して Finding を連結する。互いに独立で、一方の失敗が他方の実行を妨げない。
@@ -171,7 +183,7 @@ for r in extra: Finding(K.c, "要件 {r} は承認された要件の外")
 
 ## 5. 品質検査 Q と `scripts/gate.sh`
 
-`gov check` が行うのは K・D・T だけ。Q のツール(lint、型、デッドコード、テスト、カバレッジ、変更行のカバレッジ)は `scripts/gate.sh` が実行する。`gate.sh` が品質ゲートの**唯一の入口**で、`gov check` もその 1 ステップ。 [決定: F09、DEC-025]
+`gov check` が行うのは K・D・T と、Q の内容検査(Q.pragma)。Q のツール(lint、型、デッドコード、テスト、カバレッジ、変更行のカバレッジ)は `scripts/gate.sh` が実行する。`gate.sh` が品質ゲートの**唯一の入口**で、`gov check` もその 1 ステップ。 [決定: F09、DEC-025]
 
 | 順 | ステップ | 閾値の置き場 |
 |---|---|---|
@@ -186,7 +198,7 @@ for r in extra: Finding(K.c, "要件 {r} は承認された要件の外")
 - `DIFF_COVERAGE_FAIL_UNDER` は、`gate.sh` が `pyproject.toml` から読む。値がなければ**失敗する**(閾値なしで通さない)。 [データ: `diff-cover` は `--fail-under` なしだと常に rc=0]
 - 対象は `coverage.xml` に載る `src/` の行(`coverage` の `source = src`)。テストコードは対象外。
 - `GATE_BASE` の既定は `origin/main`。CI では `origin/${GITHUB_BASE_REF}`。
-- `gate.sh` から `pre-commit` を呼ぶので、`.pre-commit-config.yaml` には**衛生フックだけ**を置く(ruff、mypy、vulture、pytest などの重複を持たない)。 [提案: Q-L2-4。監査 #15]
+- `gate.sh` から `pre-commit` を呼ぶので、`.pre-commit-config.yaml` には**衛生フックだけ**を置く(ruff、mypy、vulture、pytest などの重複を持たない)。`gate.sh` と `gov check` を呼ぶフックも置かない(`gate.sh → pre-commit → gate.sh` の再帰になる)。`gov doctor` が検査する。 [提案: Q-L2-4。監査 #15]
 - `__init__.py` を `coverage` の `omit` から外す(移行)。 [データ: reviews/L1_review5 §3]
 - 変更行のカバレッジの移動・改名・整形の扱いは、`diff-cover` の挙動に従う(未カバー行の移動はテストの追加が必要)。
 
@@ -217,7 +229,7 @@ for r in extra: Finding(K.c, "要件 {r} は承認された要件の外")
 | イベントとマッチャー | 内容 | 出力 |
 |---|---|---|
 | `PreToolUse`、`Edit\|Write\|MultiEdit\|NotebookEdit` | 対象パスをルートからの相対パスにする。`src/` の下で、`valid_open` が 1 つでなければ通知する。拒否しない | 標準出力(通知) |
-| `PreToolUse`、`Bash` | コマンド文字列に、正規表現 `(?:^\|[\s;&\|(`{])git(?:\s+-\S+(?:\s+[^\s-]\S*)?)*\s+(commit\|push)\b` が一致したら対象にする(`command git commit`、`env git push`、サブシェル、複数行、`git -C . commit` も一致する)。`commit` なら `head=作業ツリー`、`push` なら `head=HEAD` で `run_all` を実行し、Finding があれば拒否する。**偽陽性を許し、偽陰性を減らす**: 引用符の中の `git commit` にも一致するが、拒否するのは検査が失敗するときだけ。シェルの別名や、`git commit` を含まない書き込み(`git stash` など)は検出できない(N1) | 標準エラー(拒否)/ なし |
+| `PreToolUse`、`Bash` | コマンド文字列に、正規表現 `(?:^\|[\s;&\|(`{"'])git(?:\s+-\S+(?:\s+[^\s-]\S*)?)*\s+(commit\|push)\b` が一致したら対象にする(`command git commit`、`env git push`、サブシェル、複数行、`git -C . commit` も一致する)。`commit` なら `head=作業ツリー`、`push` なら `head=HEAD` で `run_all` を実行し、Finding があれば拒否する。**偽陽性を許し、偽陰性を減らす**: 引用符の中の `git commit` にも一致するが、拒否するのは検査が失敗するときだけ。シェルの別名や、`git commit` を含まない書き込み(`git stash` など)は検出できない(N1) | 標準エラー(拒否)/ なし |
 | `SessionStart` | `gov status` と同じ要約(3 行以内) | 標準出力(通知) |
 | `UserPromptSubmit` | 同上。承認の状態が変わっていなければ短くする | 標準出力(通知) |
 
@@ -248,17 +260,6 @@ for r in extra: Finding(K.c, "要件 {r} は承認された要件の外")
 | 標準入力が JSON でない / `cwd` が git の外 | — | 何もしない(終了コード 0) | 何もしない |
 
 方針: **権威である CI と `gov check` は、評価できないときに失敗にする(fail-closed)。助言であるローカルのフックは、規則違反のときだけ拒否し、基盤のエラーでは作業を止めない(fail-open)。** ホスト(Claude Code)の入力の不備は、こちらの失敗にしない。 [提案: Q-L2-7]
-
----|---|---|---|
-| `base` が見つからない(`origin/main` が取得できない) | `E.repo`、終了コード 2 | 終了コード 2 | 通知しない |
-| `approval.json` が壊れている(`base`) | 承認は無効として扱う。K.a の理由に出る | 同左 | 同左 |
-| `approval.json` が壊れている(`head`、変更した PR) | `D.parse` | 同左 | — |
-| `.specs/` がない(未初期化) | 有効な承認が 0 個。K が適用される PR は K.a で失敗 | 同左 | 何もしない |
-| テストのソースが解析できない | `T.a`(ファイル) | 同左 | — |
-| `gov` 自身の例外 | 終了コード 2 | 終了コード 2 + 文面 | 終了コード 0、出力なし |
-| 標準入力が JSON でない / `cwd` が git の外 | — | 何もしない(終了コード 0) | 何もしない |
-
-方針: 検査を評価できないときは失敗にする(fail-closed)。ただし、拒否できない通知系は黙って終了する。ホスト(Claude Code)の入力の不備は、こちらの失敗にしない。 [提案: Q-L2-7]
 
 ---
 
