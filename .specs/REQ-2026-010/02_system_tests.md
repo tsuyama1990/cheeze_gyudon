@@ -11,6 +11,8 @@
 - **設定の検査(`L1-Cxx`)**: GitHub 側の設定を読み取って確かめる。
 - **手動確認(`L1-Mxx`)**: LLM の挙動に依存するもの。自動のテストにしない。
 - テストの追跡は、`design` marker を使わない。このリポジトリ自身のテストは、v2 の要件(例: `REQ-2026-010`)の機能タグ(`REQ-2026-010-Fnn`)を `requirement` marker に付ける。設計書の項目と機能タグの対応は §5 の追跡表で持つ。 [推論]
+- **追跡**: この文書と 03、04 の表の ID(`L1-*`、`L2-I*`、`L3-U*`)は、手動確認(M)と GitHub 側・リポジトリ外の設定(C01、C03、C06)を除き、`tests/` の `spec` marker(またはパラメータの ID)に現れなければならない。`tests/unit/test_traceability.py` が機械的に検査する。仕様の行を足したら、同じ変更でテストを足す。 [決定: DEC-045]
+- 表の「現行」列は、設計時(v1)のコードで実現できたかの記録で、現在の状態ではない。現在の状態は `spec` marker で追う。
 - ディレクトリは E2E が `tests/e2e/`、統合が `tests/integration/`、構造検査が `tests/unit/`(D10 で確定)。 [原典: オーナーの全体方針]
 - 入力の書き方: 「テスト」はテストの変更、「仕様」は `.specs/**` の変更を表す。K の判定はこの有無で変わるので、各シナリオに明記する。
 
@@ -82,7 +84,7 @@
 | L1-E38 | `PreToolUse` の `git commit`: 作業ツリーに、未承認の `src/` とテストの変更がある状態(ステージ済みかは問わない) | exit 2。理由を表示 | §6、§3.1 | できない |
 | L1-E39 | `git add src/x.py tests/test_x.py && git commit -m …` を 1 回の Bash 呼び出しで実行 | 作業ツリーを検査するので、exit 2(`git add` の前でも判定が変わらない) | §6、§3.1 | できない |
 | L1-E40 | `PreToolUse` の `git push`: HEAD に未承認の `src/` とテストの変更が含まれる | exit 2 | §6 | できない |
-| L1-E42 | `SessionStart` / `UserPromptSubmit` | 状態(現在ゲート、承認の有効/失効)が出力に含まれる。拒否しない | §6 | できない |
+| L1-E42 | `SessionStart` / `UserPromptSubmit` | 状態(有効な `open` が 1 つのときは現在ゲート、承認の有効/失効の要約)が出力に含まれる。拒否しない | §6 | できない |
 
 ### 2.6 表示と通し
 
@@ -107,7 +109,7 @@
 |---|---|---|---|
 | L1-S01 | `domain`、`derive`、`checks` が、`open`、`Path.read_*`、`os.environ`、`datetime.now`、`subprocess` など、`Repo` 以外から読む呼び出しを含まない | I2、§3.1 | できない |
 | L1-S02 | import が `adapters → checks → derive → domain` の一方向。逆向き・循環がない | §3 | できない |
-| L1-S03 | §10 の表の各行の「対応」先に実在するモジュールがあり、表に載らないモジュールがない(多対多を許す) | §10、全体方針の関門 | できない |
+| L1-S03 | `04_detail_design.md` のモジュール見出しと `src/jtc_gov/` の(空でない)モジュールが一対一に対応する(両方向。多対多は許さない) | §10、全体方針の関門 | できない |
 | L1-S04 | `state.json` を書くコードがない | §5.2 | できない |
 
 ## 5. 設定の検査(GitHub 側)と手動確認
@@ -158,7 +160,7 @@
 
 ## 7. 現行の E2E との関係
 
-現行の `tests/e2e/test_full_lifecycle.py`(1 件)は、保存した状態を `gate-check` が進める方式のライフサイクルを確かめている [データ]。E45 に置き換える。置き換えは L2 の承認後。それまでは削除しない。
+旧 v1 の `tests/e2e/test_full_lifecycle.py` は削除し、`tests/e2e/test_scenarios.py` の `test_full_lifecycle`(E45)に置き換えた。
 
 ## 8. 承認
 
