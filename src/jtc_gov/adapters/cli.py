@@ -1,9 +1,14 @@
+import difflib
+import json
+import os
 import traceback
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import click
 
+from jtc_gov.adapters import claude_hook
 from jtc_gov.adapters.repo_git import WORKTREE, GitRepo, find_root
 from jtc_gov.adapters.report import findings_json, format_findings, format_status
 from jtc_gov.checks import run_all
@@ -79,3 +84,141 @@ def status(base: str, head: str) -> None:
     except Exception as e:
         click.echo(f"E.internal: {type(e).__name__}: {e}", err=True)
         raise SystemExit(EXIT_UNEVALUATED) from e
+
+
+SETTINGS_PATH = Path(".claude/settings.json")
+GITATTRIBUTES_PATH = Path(".gitattributes")
+GITATTRIBUTES = ".specs/** text eol=lf\n"
+HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.venv/bin/gov hook'
+WRITE_MATCHER = "|".join(sorted(claude_hook.WRITE_TOOLS))
+
+
+def _hook_entry(event: str, matcher: str | None = None) -> dict[str, object]:
+    entry: dict[str, object] = {
+        "hooks": [{"type": "command", "command": f"{HOOK_COMMAND} {event}"}]
+    }
+    return {"matcher": matcher, **entry} if matcher else entry
+
+
+def render_settings() -> str:
+    hooks = {
+        "PreToolUse": [
+            _hook_entry("pre-tool-use", WRITE_MATCHER),
+            _hook_entry("pre-tool-use", "Bash"),
+        ],
+        "SessionStart": [_hook_entry("session-start")],
+        "UserPromptSubmit": [_hook_entry("user-prompt-submit")],
+    }
+    return json.dumps({"hooks": hooks}, indent=2) + "\n"
+
+
+def render_gitattributes() -> str:
+    return GITATTRIBUTES
+
+
+@main.command(name="hook")
+@click.argument("event", type=click.Choice(claude_hook.EVENTS))
+def hook_command(event: str) -> None:
+    """Claude Code のフックの入口(標準入力の JSON)。"""
+    claude_hook.main(event)
+
+
+@main.command()
+def init() -> None:
+    """フック設定と .gitattributes を作る。既存と違えば差分を出して終了コード 1。"""
+    root = find_root(Path.cwd())
+    conflict = False
+    for rel, content in (
+        (SETTINGS_PATH, render_settings()),
+        (GITATTRIBUTES_PATH, render_gitattributes()),
+    ):
+        target = root / rel
+        if not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+            click.echo(f"作成: {rel}")
+            continue
+        current = target.read_text(encoding="utf-8")
+        if current != content:
+            conflict = True
+            diff = difflib.unified_diff(
+                current.splitlines(),
+                content.splitlines(),
+                f"{rel} (現在)",
+                f"{rel} (gov init)",
+                lineterm="",
+            )
+            click.echo("\n".join(diff))
+    raise SystemExit(EXIT_VIOLATION if conflict else EXIT_OK)
+
+
+@dataclass(frozen=True)
+class DoctorItem:
+    name: str
+    ok: bool
+    detail: str = ""
+
+
+GATE_SCRIPT = Path("scripts/gate.sh")
+PRE_COMMIT_CONFIG = Path(".pre-commit-config.yaml")
+DUPLICATED_TOOLS = ("ruff", "mypy", "vulture", "pytest", "gate.sh", "gov check")
+
+
+def _gate_script(root: Path) -> DoctorItem:
+    path = root / GATE_SCRIPT
+    return DoctorItem(
+        f"{GATE_SCRIPT} が実行可能",
+        path.is_file() and os.access(path, os.X_OK),
+        "ない、または実行権限がない",
+    )
+
+
+def _pre_commit(root: Path) -> DoctorItem:
+    path = root / PRE_COMMIT_CONFIG
+    lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    text = "\n".join(line for line in lines if not line.lstrip().startswith("#"))
+    found = [t for t in DUPLICATED_TOOLS if t in text]
+    ok = path.is_file() and not found
+    return DoctorItem(f"{PRE_COMMIT_CONFIG} が衛生フックだけ", ok, ", ".join(found) or "ない")
+
+
+def _settings(root: Path) -> DoctorItem:
+    path = root / SETTINGS_PATH
+    try:
+        hooks = json.loads(path.read_text(encoding="utf-8"))["hooks"]
+        ok = isinstance(hooks, dict) and "gov hook" in json.dumps(hooks)
+    except (OSError, ValueError, KeyError, TypeError):
+        ok = False
+    return DoctorItem(f"{SETTINGS_PATH} が gov hook を呼ぶ", ok, "ない、または形式が違う")
+
+
+def _origin_main(root: Path) -> DoctorItem:
+    try:
+        GitRepo(root, DEFAULT_BASE, "HEAD")
+    except RepoError as e:
+        return DoctorItem(f"{DEFAULT_BASE} が解決できる", ok=False, detail=str(e))
+    return DoctorItem(f"{DEFAULT_BASE} が解決できる", ok=True)
+
+
+CHECKS: tuple[Callable[[Path], DoctorItem], ...] = (
+    _gate_script,
+    _pre_commit,
+    _settings,
+    _origin_main,
+)
+
+
+@main.command()
+def doctor() -> None:
+    """前提を検査する。"""
+    try:
+        root = find_root(Path.cwd())
+    except RepoError as e:
+        click.echo(f"E.repo: {e}", err=True)
+        raise SystemExit(EXIT_VIOLATION) from e
+    items = [check(root) for check in CHECKS]
+    for item in items:
+        click.echo(
+            f"{'OK' if item.ok else 'NG'} {item.name}" + ("" if item.ok else f": {item.detail}")
+        )
+    raise SystemExit(EXIT_OK if all(i.ok for i in items) else EXIT_VIOLATION)

@@ -108,3 +108,11 @@ def test_run_check_unevaluated() -> None:
     assert "Traceback" in debug_out
     _, js = run_check(_opener(RepoError("x")), as_json=True)
     assert json.loads(js)["findings"][0]["rule"] == "E.repo"
+
+
+@pytest.mark.requirement("REQ-2026-010-F06")
+def test_status_of_a_closed_requirement_is_not_reported_as_invalid() -> None:
+    files = with_approval("REQ-2026-010", "closed")
+    text = format_status(FakeRepo(files, files), "worktree")
+    assert "REQ-2026-010: closed / ゲート 5" in text
+    assert "失効" not in text

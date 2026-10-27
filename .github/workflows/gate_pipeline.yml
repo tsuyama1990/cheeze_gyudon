@@ -31,4 +31,6 @@ jobs:
         run: uv sync
 
       - name: Run Full Quality & Governance Suite
+        env:
+          GATE_BASE: origin/${{ github.base_ref }}
         run: scripts/gate.sh

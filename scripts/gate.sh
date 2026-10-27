@@ -18,7 +18,7 @@ echo "[4/7] Pytest & coverage..."
 uv run pytest
 
 echo "[5/7] Changed-line coverage vs ${BASE}..."
-uv run diff-cover coverage.xml --compare-branch="${BASE}" --fail-under="${THRESHOLD}"
+uv run diff-cover coverage.xml --compare-branch="${BASE}" --include-untracked --fail-under="${THRESHOLD}"
 
 echo "[6/7] gov check vs ${BASE}..."
 uv run gov check --base "${BASE}"

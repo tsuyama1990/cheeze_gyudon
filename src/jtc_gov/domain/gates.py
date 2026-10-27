@@ -19,3 +19,4 @@ DELIVERABLES: Final = (
 APPROVAL_FILE: Final = "approval.json"
 APPROVED_FILE_PATTERN: Final = re.compile(r"^0[1-5]_[^/]+\Z")
 GUARDED_PREFIX: Final = re.compile(r"^0[1-5]_")
+SRC_PREFIX: Final = "src/"
