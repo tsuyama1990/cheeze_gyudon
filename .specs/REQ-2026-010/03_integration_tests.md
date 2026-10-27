@@ -120,7 +120,7 @@
 | §11 モジュール配置 | S01〜S04 |
 | §5 pre-commit は衛生のみ(Q-L2-4) | I43 |
 
-**テストがない項目(明示)**: 未決の Q-L2-5(`no-commit-to-branch` の扱い)、Q-L2-6(`gov approve`)、Q-L2-8(閾値の値)。`main` 側のチェッカーで CI を実行する方式(R1)は spike で、実測後に追加する。フックの実機の確認は 02_system_tests.md の M01。
+**テストがない項目(明示)**: 決定済みで検査しない項目: DEC-032(`no-commit-to-branch` を外す)、DEC-033(`gov approve` なし)、DEC-035(閾値の値は実測で調整)。`main` 側のチェッカーで CI を実行する方式(R1)は spike で、実測後に追加する。フックの実機の確認は 02_system_tests.md の M01。
 
 ## 11. 承認
 

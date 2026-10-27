@@ -307,10 +307,4 @@ src/jtc_gov/
 
 ## 14. 未決の小さな問い
 
-| ID | 事実 | 問い | 暫定の答え(推論) |
-|---|---|---|---|
-| Q-L2-4 | `gate.sh` が pre-commit を呼び、pre-commit も ruff、mypy、vulture、pytest を持つ(重複。監査 #15) | pre-commit は衛生フックだけにするか | そうする |
-| Q-L2-5 | `main` への直接コミット禁止は、全体設定のフック、pre-commit の `no-commit-to-branch`、ruleset の 3 つで実装される(監査 #16) | pre-commit の `no-commit-to-branch` を外すか | 外す。エージェントは全体のフック、人間の push は ruleset が止める |
-| Q-L2-6 | 承認ファイルは人間が `sha256sum` で作る | `gov approve`(生成コマンド)を足すか | MVP では足さない(DEC-029 の 5 つに含めない)。手作業が負担なら次のスパイラル |
-| Q-L2-7 | ローカルのフックは助言(DEC-002)。`gov` 自身の不具合で作業が止まると、エージェントが詰む(レビュー指摘 MAJ-9)。CI は権威 | フックは基盤のエラーで拒否せず警告にとどめ、拒否は規則違反のときだけにするか(権威は CI の fail-closed) | そうする。最初の案(拒否系も fail-closed)から変更した |
-| Q-L2-8 | 変更行のカバレッジの閾値のキー名は `[tool.jtc_gov]` の `diff_coverage_fail_under`(仮) | 値は全体のカバレッジと同じにするか | 同じ値にする。実測して調整する |
+なし。Q-L2-4〜8 は決定した(DEC-031〜035)。
