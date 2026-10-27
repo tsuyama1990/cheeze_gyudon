@@ -30,7 +30,7 @@ def _to_regex(glob: str) -> re.Pattern[str]:
         else:
             out += re.escape(glob[i])
             i += 1
-    return re.compile(f"^{out}$")
+    return re.compile(f"^{out}\\Z")
 
 
 MACHINERY: Final = tuple((g, _to_regex(g)) for g in _GLOBS)

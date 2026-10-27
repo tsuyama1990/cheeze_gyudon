@@ -7,7 +7,7 @@ from jtc_gov.domain.ids import FEATURE_TAG, requirement_of
 from jtc_gov.domain.models import Change, Finding, ParseFailure
 from jtc_gov.domain.repo import Repo
 
-_TEST_FILE = re.compile(r"^(?:.*/)?test_[^/]*\.py$")
+_TEST_FILE = re.compile(r"^(?:.*/)?test_[^/]*\.py\Z")
 
 
 def _check_function(repo: Repo, path: str, f: TestFunction) -> list[Finding]:

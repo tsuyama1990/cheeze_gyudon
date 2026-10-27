@@ -33,7 +33,16 @@ class GitRepo:
         return done.stdout
 
     def _names(self, *args: str) -> list[str]:
-        return [n.decode() for n in self._git(*args).split(b"\0") if n]
+        try:
+            names = [n.decode() for n in self._git(*args).split(b"\0") if n]
+        except UnicodeDecodeError as e:
+            msg = f"path is not valid UTF-8: {e}"
+            raise RepoError(msg) from e
+        nested = [n for n in names if n.endswith("/")]
+        if nested:
+            msg = f"nested repository is not supported: {nested[0]}"
+            raise RepoError(msg)
+        return names
 
     def read(self, path: str, ref: Ref) -> bytes | None:
         rev = self._rev[ref]

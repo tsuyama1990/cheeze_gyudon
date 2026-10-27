@@ -41,3 +41,21 @@ def test_outside_a_git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     result = CliRunner().invoke(main, ["check"])
     assert result.exit_code == 2
     assert "E.repo" in result.output
+
+
+@pytest.mark.requirement("REQ-2026-010-F06")
+def test_status_internal_error_exits_2(
+    root: Path,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = commit(root, {"README.md": b"x"})
+    monkeypatch.chdir(root)
+
+    def boom(*_: object) -> str:
+        msg = "boom"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr("jtc_gov.adapters.cli.format_status", boom)
+    result = CliRunner().invoke(main, ["status", "--base", base])
+    assert result.exit_code == 2
+    assert "E.internal" in result.output

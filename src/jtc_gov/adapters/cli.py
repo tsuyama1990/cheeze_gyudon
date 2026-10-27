@@ -76,3 +76,6 @@ def status(base: str, head: str) -> None:
     except RepoError as e:
         click.echo(f"E.repo: {e}", err=True)
         raise SystemExit(EXIT_UNEVALUATED) from e
+    except Exception as e:
+        click.echo(f"E.internal: {type(e).__name__}: {e}", err=True)
+        raise SystemExit(EXIT_UNEVALUATED) from e

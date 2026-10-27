@@ -159,7 +159,6 @@ branch = true
 source = ["src"]
 omit = [
     "tests/*",
-    "*/__init__.py",
 ]
 
 [tool.coverage.report]

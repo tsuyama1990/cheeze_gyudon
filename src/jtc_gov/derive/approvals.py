@@ -11,7 +11,7 @@ from jtc_gov.domain.ids import FEATURE_TAG
 from jtc_gov.domain.models import Approval, ApprovalState, ParseFailure, Ref
 from jtc_gov.domain.repo import Repo
 
-APPROVAL_PATH: Final = re.compile(rf"^\.specs/(REQ-\d{{4}}-\d{{3,}})/{re.escape(APPROVAL_FILE)}$")
+APPROVAL_PATH: Final = re.compile(rf"^\.specs/(REQ-\d{{4}}-\d{{3,}})/{re.escape(APPROVAL_FILE)}\Z")
 _SPEC_FILE: Final = "01_req_spec.md"
 _SPEC_TAG_LINE: Final = re.compile(r"^\s*[-*]\s+\*\*\[(REQ-\d{4}-\d{3,}-F\d{2,})\]")
 _FENCE: Final = "```"

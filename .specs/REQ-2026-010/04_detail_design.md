@@ -129,6 +129,8 @@ def test_functions(source: bytes) -> list[TestFunction] | ParseFailure
 4. デコレータからタグを取る: `ast.Call` で、`func` が `Attribute(attr="requirement")`(`pytest.mark.requirement`)または `Name("requirement")` のもの。第 1 引数が `ast.Constant` の `str` ならタグ、そうでなければ `has_marker` だけを真にする。
 5. 範囲: `min(デコレータの lineno, def の lineno)` から `end_lineno` までの行を連結して SHA-256。`tags` は、関数自身、クラス、モジュールの marker を合わせた**実効のタグ**。
 
+**収集の限界(既知。推論)**: 次は pytest が収集するが、`test_functions` は拾わない。基底クラス(`Test` で始まらないもの)から継承した `test_*`、入れ子の `Test*` クラス、`test_alias = test_plain` のような別名。これらにある marker のないテストは `T.a` を通り、変更は `K.c` に出ない。協調的なエージェントが通常は書かない形なので、MVP では受け入れる(backlog B-13)。`pytestmark` は、モジュール直下の最後の代入だけを使う。 [レビュー F3、F4]
+
 ### 3.4 `derive/changes.py`
 ```python
 def related_requirements(repo: Repo, changes: Sequence[Change]) -> set[str]
@@ -197,8 +199,8 @@ class GitRepo:
 - `read(path, ref)`: `ref` が `base` または `head` がコミットのとき `git ls-tree <rev> -- <path>` で確認し(出力が空なら None、モードが 160000(サブモジュール)なら `RepoError`)、`git show <rev>:<path>` で読む。`head=worktree` のときは、`list("head")` に含まれるパスだけを読む: シンボリックリンクなら `os.fsencode(os.readlink(path))`、通常のファイルなら内容(バイト列)。含まれなければ None。 [データ: R6、リンクは git の扱いと同じ]
 - サブモジュール(gitlink)は対象外(MVP。`ls-tree` が返しても `read` は `RepoError`)。 [レビュー R2-14]
 - `list(ref)`: コミットのとき `git ls-tree -r --name-only -z <rev>` を**昇順に並べる**(ls-tree の順はフルパス昇順を保証しない)。`worktree` のときは `git ls-files -z -c -o --exclude-standard` から、`git ls-files -z -d`(作業ツリーで削除されたもの)を引き、**昇順に並べる**。 [データ: R6、`ls-files -c -o` は削除済みの追跡ファイルを含み、昇順でもない]
-- `changes()`: `git diff -M --name-status -z <base> <head>`(コミットのとき)または `git diff -M --name-status -z <base>`(`worktree` のとき)を解析する。形式は、状態、NUL、パス、NUL(`R`・`C` は旧パス、NUL、新パス、NUL)。`A` → added(`old_path=None`)、`M`・`T` → modified(`old_path` と `new_path` に**同じパス**)、`D` → deleted(`new_path=None`)、`R*` → renamed(旧、新)。それ以外の状態(`C*` を含む。`-M` ではコピーは検出されない)が出たら `RepoError("unsupported status")`。 [レビュー指摘 L-01]`worktree` のときは、これに加えて、`git ls-files -z -o --exclude-standard` の未追跡ファイルを `added` として足す。**ステージ前の改名は、`deleted`(旧)と `added`(未追跡の新)の組になる**(これは `Q.pragma` が改名に強い定義で吸収する)。 [データ: R6]
-- 結果は、インスタンス内でキャッシュする(1 回の実行の間、作業ツリーは変わらないとみなす)。 [推論]
+- `changes()`: `git diff -M --name-status -z <base> <head>`(コミットのとき)または `git diff -M --name-status -z <base>`(`worktree` のとき)を解析する。形式は、状態、NUL、パス、NUL(`R`・`C` は旧パス、NUL、新パス、NUL)。`A` → added(`old_path=None`)、`M`・`T` → modified(`old_path` と `new_path` に**同じパス**)、`D` → deleted(`new_path=None`)、`R*` → renamed(旧、新)。それ以外の状態(`C*` を含む。`-M` ではコピーは検出されない)が出たら `RepoError("unsupported status")`。 [レビュー指摘 L-01]`worktree` のときは、これに加えて、`git ls-files -z -o --exclude-standard` の未追跡ファイルを `added` として足す。**ステージ前の改名は、`deleted`(旧)と `added`(未追跡の新)の組になる**(これは `Q.pragma` が改名に強い定義で吸収する)。ただし `related_requirements` は、移動したテストファイルの関数をすべて変更とみなすので、`git add` 前は K.c が出て、追跡された改名(CI)では出ない場合がある(偽陽性側。MVP では受け入れる) [レビュー F9]。 [データ: R6]
+- キャッシュしない(速度の最適化はしない。DEC-014)。
 
 ### 5.2 `adapters/report.py`
 ```python

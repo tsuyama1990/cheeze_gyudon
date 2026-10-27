@@ -8,7 +8,7 @@ from jtc_gov.domain.models import Change, ParseFailure, Ref
 from jtc_gov.domain.repo import Repo
 
 SPEC_PATH: Final = re.compile(r"^\.specs/(REQ-\d{4}-\d{3,})/")
-TEST_FILE: Final = re.compile(r"^tests/(?:.*/)?test_[^/]*\.py$")
+TEST_FILE: Final = re.compile(r"^tests/(?:.*/)?test_[^/]*\.py\Z")
 
 
 def _functions(repo: Repo, path: str | None, ref: Ref) -> dict[str, TestFunction]:
