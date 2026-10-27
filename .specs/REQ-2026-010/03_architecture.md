@@ -288,7 +288,7 @@ src/jtc_gov/
   domain/    ids.py  models.py  gates.py  machinery.py
   derive/    approvals.py  markers.py  gates.py
   checks/    k.py  d.py  t.py  __init__.py(run_all)
-  adapters/  cli.py  claude_hook.py  repo_git.py
+  adapters/  cli.py  claude_hook.py  repo_git.py  report.py(出力の整形。cli と claude_hook が共有する)
 ```
 現行モジュールとの対応は 02 §10(L2 の結論で #3 を反映)。
 
