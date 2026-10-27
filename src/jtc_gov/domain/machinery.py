@@ -27,9 +27,6 @@ def _to_regex(glob: str) -> re.Pattern[str]:
         elif glob.startswith("**", i):
             out += ".*"
             i += 2
-        elif glob[i] == "*":
-            out += "[^/]*"
-            i += 1
         else:
             out += re.escape(glob[i])
             i += 1
