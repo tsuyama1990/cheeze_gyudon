@@ -46,7 +46,7 @@ def _approval_line(repo: Repo, req: str, approval: Approval | ParseFailure) -> s
 
 
 def _src_line(repo: Repo) -> str:
-    opens = valid_open(repo, "head")
+    opens = valid_open(repo, "base")
     if len(opens) == 1:
         return f"src/ の変更(テストまたは仕様を伴う): 可能 ({opens[0].requirement})"
     return f"src/ の変更(テストまたは仕様を伴う): 不可 (有効な open な承認が {len(opens)} 個)"

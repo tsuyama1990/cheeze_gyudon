@@ -18,6 +18,8 @@ class GitRepo:
         for rev in (base, head):
             if rev != WORKTREE:
                 self._git("rev-parse", "--verify", f"{rev}^{{commit}}")
+        tip = "HEAD" if head == WORKTREE else head
+        self._rev["base"] = self._git("merge-base", base, tip).decode().strip()
 
     def _run(self, *args: str) -> subprocess.CompletedProcess[bytes]:
         cmd = ["git", "-C", str(self._root), "-c", "core.quotepath=off", *args]

@@ -1,15 +1,15 @@
 from collections import Counter
 from collections.abc import Sequence
 
+from jtc_gov.domain.gates import SRC_PREFIX
 from jtc_gov.domain.models import Change, Finding, Ref
 from jtc_gov.domain.repo import Repo
 
 _MARK = "pragma: no cover"
-_SRC = "src/"
 
 
 def _is_src(path: str | None) -> bool:
-    return path is not None and path.startswith(_SRC) and path.endswith(".py")
+    return path is not None and path.startswith(SRC_PREFIX) and path.endswith(".py")
 
 
 def _lines(repo: Repo, path: str, ref: Ref) -> list[str] | None:

@@ -1,13 +1,11 @@
-import re
 from collections.abc import Sequence
 
 from jtc_gov.derive.approvals import spec_tags
 from jtc_gov.derive.markers import TestFunction, test_functions
+from jtc_gov.domain.gates import TEST_FILENAME, is_test_path
 from jtc_gov.domain.ids import FEATURE_TAG, requirement_of
 from jtc_gov.domain.models import Change, Finding, ParseFailure
 from jtc_gov.domain.repo import Repo
-
-_TEST_FILE = re.compile(r"^(?:.*/)?test_[^/]*\.py\Z")
 
 
 def _check_function(repo: Repo, path: str, f: TestFunction) -> list[Finding]:
@@ -34,9 +32,9 @@ def check_t(repo: Repo, changes: Sequence[Change]) -> list[Finding]:
     del changes
     findings: list[Finding] = []
     for path in repo.list("head"):
-        if not _TEST_FILE.match(path):
+        if not TEST_FILENAME.match(path):
             continue
-        if not path.startswith("tests/"):
+        if not is_test_path(path):
             findings.append(Finding("T.c", path, "テストは tests/ に置く"))
             continue
         raw = repo.read(path, "head")

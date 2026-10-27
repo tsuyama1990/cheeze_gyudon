@@ -20,3 +20,10 @@ APPROVAL_FILE: Final = "approval.json"
 APPROVED_FILE_PATTERN: Final = re.compile(r"^0[1-5]_[^/]+\Z")
 GUARDED_PREFIX: Final = re.compile(r"^0[1-5]_")
 SRC_PREFIX: Final = "src/"
+TESTS_PREFIX: Final = "tests/"
+SPEC_FILE: Final = "01_req_spec.md"
+TEST_FILENAME: Final = re.compile(r"^(?:.*/)?test_[^/]*\.py\Z")
+
+
+def is_test_path(path: str) -> bool:
+    return path.startswith(TESTS_PREFIX) and bool(TEST_FILENAME.match(path))
