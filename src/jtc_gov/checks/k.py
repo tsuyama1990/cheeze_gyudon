@@ -2,7 +2,7 @@ import re
 from collections.abc import Sequence
 
 from jtc_gov.derive.approvals import valid_open
-from jtc_gov.derive.changes import added_test_functions, related_requirements
+from jtc_gov.derive.changes import changed_test_functions, related_requirements
 from jtc_gov.domain.gates import APPROVAL_FILE, GUARDED_PREFIX, SRC_PREFIX
 from jtc_gov.domain.models import Change, Finding
 from jtc_gov.domain.repo import Repo
@@ -24,7 +24,7 @@ def _guarded(path: str, req: str) -> bool:
 
 def check_k(repo: Repo, changes: Sequence[Change]) -> list[Finding]:
     new_behavior = _touches(changes, (SRC_PREFIX,)) and _touches(changes, _AUX)
-    if not (new_behavior or added_test_functions(repo, changes)):
+    if not (new_behavior or changed_test_functions(repo, changes)):
         return []
     opens = valid_open(repo, "base")
     if len(opens) != 1:

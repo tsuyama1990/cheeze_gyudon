@@ -23,34 +23,31 @@ def _requirements(funcs: Sequence[TestFunction]) -> set[str]:
     return {requirement_of(t) for f in funcs for t in f.tags if FEATURE_TAG.match(t)}
 
 
+def _changed_pairs(
+    repo: Repo, change: Change
+) -> list[tuple[TestFunction | None, TestFunction | None]]:
+    if not any(is_test_path(p) for p in change.paths()):
+        return []
+    old = _functions(repo, change.old_path, "base")
+    new = _functions(repo, change.new_path, "head")
+    pairs = [(old.get(name), new.get(name)) for name in sorted(old.keys() | new.keys())]
+    return [
+        (before, after)
+        for before, after in pairs
+        if before is None
+        or after is None
+        or (before.source_sha, before.tags) != (after.source_sha, after.tags)
+    ]
+
+
 def related_requirements(repo: Repo, changes: Sequence[Change]) -> set[str]:
     found: set[str] = set()
     for change in changes:
         found |= {m.group(1) for p in change.paths() if (m := SPEC_PATH.match(p))}
-        if not any(is_test_path(p) for p in change.paths()):
-            continue
-        old = _functions(repo, change.old_path, "base")
-        new = _functions(repo, change.new_path, "head")
-        for name in old.keys() | new.keys():
-            before, after = old.get(name), new.get(name)
-            if (
-                before is None
-                or after is None
-                or (before.source_sha, before.tags)
-                != (
-                    after.source_sha,
-                    after.tags,
-                )
-            ):
-                found |= _requirements([f for f in (before, after) if f is not None])
+        for pair in _changed_pairs(repo, change):
+            found |= _requirements([f for f in pair if f is not None])
     return found
 
 
-def added_test_functions(repo: Repo, changes: Sequence[Change]) -> bool:
-    for change in changes:
-        if change.new_path is None or not is_test_path(change.new_path):
-            continue
-        old = _functions(repo, change.old_path, "base")
-        if _functions(repo, change.new_path, "head").keys() - old.keys():
-            return True
-    return False
+def changed_test_functions(repo: Repo, changes: Sequence[Change]) -> bool:
+    return any(after is not None for change in changes for _, after in _changed_pairs(repo, change))

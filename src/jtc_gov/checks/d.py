@@ -8,7 +8,7 @@ from jtc_gov.derive.approvals import (
     validity,
 )
 from jtc_gov.derive.markers import test_functions
-from jtc_gov.domain.gates import APPROVED_FILE_PATTERN, DELIVERABLES, SPEC_FILE, is_test_path
+from jtc_gov.domain.gates import DELIVERABLES, GUARDED_PREFIX, SPEC_FILE, is_test_path
 from jtc_gov.domain.models import Approval, ApprovalState, Change, Finding, ParseFailure, Ref
 from jtc_gov.domain.repo import Repo
 
@@ -39,18 +39,13 @@ def _check_open(repo: Repo, approval: Approval) -> list[Finding]:
     return findings
 
 
-def _was_open(repo: Repo, req: str) -> bool:
-    previous = load_approvals(repo, "base").get(req)
-    return isinstance(previous, Approval) and previous.state is ApprovalState.OPEN
-
-
 def _changed_design_files(repo: Repo, req: str) -> list[Finding]:
     prefix = f".specs/{req}/"
     names = {
         p
         for ref in ("base", "head")
         for p in repo.list(ref)
-        if p.startswith(prefix) and APPROVED_FILE_PATTERN.match(p.removeprefix(prefix))
+        if p.startswith(prefix) and GUARDED_PREFIX.match(p.removeprefix(prefix))
     }
     return [
         Finding("D.c", p, "承認済みの設計は、完了の PR で変更できない")
@@ -61,7 +56,18 @@ def _changed_design_files(repo: Repo, req: str) -> list[Finding]:
 
 def _check_closed(repo: Repo, approval: Approval) -> list[Finding]:
     req = approval.requirement
-    completing = _was_open(repo, req)
+    previous = load_approvals(repo, "base").get(req)
+    completing = False
+    if isinstance(previous, Approval):
+        if previous.state is ApprovalState.WITHDRAWN:
+            return [
+                Finding(
+                    "D.c", f".specs/{req}", "取り下げた要件は直接閉じられない(先に open に戻す)"
+                )
+            ]
+        completing = previous.state is ApprovalState.OPEN
+        if completing and validity(repo, "base", previous):
+            return [Finding("D.c", f".specs/{req}", "承認が失効している(更新してから閉じる)")]
     ref: Ref = "base" if completing else "head"
     findings = _changed_design_files(repo, req) if completing else []
     if repo.read(f".specs/{req}/{SPEC_FILE}", ref) is None:

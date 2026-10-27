@@ -7,6 +7,7 @@ from jtc_gov.domain.errors import RepoError
 from jtc_gov.domain.models import Change, Ref, Status
 
 WORKTREE = "worktree"
+DEFAULT_BASE = "origin/main"
 _GITLINK_MODE = b"160000"
 _STATUS: dict[str, Status] = {"A": "added", "M": "modified", "T": "modified", "D": "deleted"}
 
@@ -19,7 +20,7 @@ class GitRepo:
             if rev != WORKTREE:
                 self._git("rev-parse", "--verify", f"{rev}^{{commit}}")
         tip = "HEAD" if head == WORKTREE else head
-        self._rev["base"] = self._git("merge-base", base, tip).decode().strip()
+        self._fork_point = self._git("merge-base", base, tip).decode().strip()
 
     def _run(self, *args: str) -> subprocess.CompletedProcess[bytes]:
         cmd = ["git", "-C", str(self._root), "-c", "core.quotepath=off", *args]
@@ -78,8 +79,8 @@ class GitRepo:
         return sorted(set(present) - deleted)
 
     def changes(self) -> Sequence[Change]:
-        base, head = self._rev["base"], self._rev["head"]
-        revs = (base,) if head == WORKTREE else (base, head)
+        head = self._rev["head"]
+        revs = (self._fork_point,) if head == WORKTREE else (self._fork_point, head)
         tokens = self._names("diff", "-M", "--name-status", "-z", *revs)
         out: list[Change] = []
         i = 0

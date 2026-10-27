@@ -33,7 +33,7 @@ def _k(base: dict[str, bytes], head: dict[str, bytes]) -> list[Finding]:
 def test_k_applies_only_with_src_and_aux() -> None:
     assert _k({}, {"src/a.py": b"x"}) == []
     assert _rules(_k({}, {TEST: _t(TAG)})) == ["K.a"]
-    assert _k({TEST: _t(TAG)}, {TEST: _t(TAG, "pass  # edited")}) == []
+    assert _rules(_k({TEST: _t(TAG)}, {TEST: _t(TAG, "pass  # edited")})) == ["K.a"]
     assert _rules(_k({}, {"src/a.py": b"x", TEST: _t(TAG)})) == ["K.a"]
     assert _rules(_k({}, {"src/a.py": b"x", ".specs/x/y.md": b"x"})) == ["K.a"]
 
@@ -291,7 +291,11 @@ def test_k_on_tests_only_pr() -> None:
     assert _rules(_k({}, new_test)) == ["K.a"]
     other = {TEST: _t("REQ-2026-001-F01")}
     assert _rules(_k(approved, {**approved, **other})) == ["K.c"]
-    assert _k({**approved, **new_test}, {**approved, TEST: _t(TAG, "assert 1")}) == []
+    edited = {**approved, TEST: _t(TAG, "assert 1")}
+    assert _rules(_k({**approved, **new_test}, edited)) == []
+    assert _rules(_k({**new_test}, {TEST: _t(TAG, "assert 1")})) == ["K.a"]
+    renamed = {TEST: _t(TAG).replace(b"test_a", b"test_renamed")}
+    assert _rules(_k(new_test, renamed)) == ["K.a"]
 
 
 @pytest.mark.requirement("REQ-2026-010-F02")
@@ -318,3 +322,49 @@ def test_d_completing_an_open_requirement() -> None:
     finished = {**with_approval(REQ, "closed", f"- **[{TAG}] x**\n"), TEST: _t(TAG)}
     assert _d(done, finished) == []
     assert _d({}, finished) == []
+
+
+@pytest.mark.requirement("REQ-2026-010-F02")
+def test_d_closing_needs_a_valid_open_approval() -> None:
+    """L3-U50"""
+    spec = f"- **[{TAG}] x**\n"
+    tested = {TEST: _t(TAG)}
+    closed = {**with_approval(REQ, "closed", spec), **tested}
+    stale = {
+        **with_approval(REQ, spec=spec),
+        f".specs/{REQ}/01_req_spec.md": b"- **[REQ-2026-010-F09] y**\n",
+    }
+    assert [f.message for f in _d({**stale, **tested}, closed)] == [
+        "承認が失効している(更新してから閉じる)"
+    ]
+    withdrawn = {**with_approval(REQ, "withdrawn"), **tested}
+    assert [f.rule for f in _d(withdrawn, closed)] == ["D.c"]
+    already_closed = {**with_approval(REQ, "closed", spec), **tested}
+    assert _d(already_closed, {**closed, "README.md": b"x"}) == []
+    no_approval = {f".specs/{REQ}/01_req_spec.md": spec.encode(), **tested}
+    assert _d(no_approval, closed) == []
+
+
+@pytest.mark.requirement("REQ-2026-010-F03")
+def test_t_flags_a_dynamic_marker_even_next_to_a_literal_one() -> None:
+    """L3-U35"""
+    spec = f"- **[{TAG}] x**\n"
+    source = (
+        b"import pytest\n\npytestmark = pytest.mark.requirement("
+        + f'"{TAG}"'.encode()
+        + b")\n\n\n@pytest.mark.requirement(OTHER)\ndef test_a():\n    pass\n"
+    )
+    findings = _t_check({**with_approval(REQ, spec=spec), TEST: source})
+    assert [(f.rule, f.message) for f in findings] == [
+        ("T.a", "リテラルでない引数の requirement marker がある")
+    ]
+
+
+@pytest.mark.requirement("REQ-2026-010-F02")
+def test_d_closing_protects_files_under_numbered_directories() -> None:
+    """L3-U50"""
+    spec = f"- **[{TAG}] x**\n"
+    nested = f".specs/{REQ}/05_evidence/note.md"
+    base = {**with_approval(REQ, spec=spec), nested: b"a", TEST: _t(TAG)}
+    head = {**with_approval(REQ, "closed", spec), nested: b"b", TEST: _t(TAG)}
+    assert [f.path for f in _d(base, head)] == [nested]

@@ -13,13 +13,12 @@ def _check_function(repo: Repo, path: str, f: TestFunction) -> list[Finding]:
     findings = [
         Finding("T.a", where, f"形式不正のタグ: {t}") for t in f.tags if not FEATURE_TAG.match(t)
     ]
+    if f.dynamic:
+        findings.append(Finding("T.a", where, "リテラルでない引数の requirement marker がある"))
     valid = [t for t in f.tags if FEATURE_TAG.match(t)]
     if not valid:
-        reason = (
-            "リテラルでない引数" if f.has_marker and not f.tags else "requirement marker がない"
-        )
         if not findings:
-            findings.append(Finding("T.a", where, reason))
+            findings.append(Finding("T.a", where, "requirement marker がない"))
         return findings
     for tag in valid:
         spec = spec_tags(repo, "head", requirement_of(tag))

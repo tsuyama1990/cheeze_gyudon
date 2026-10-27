@@ -17,22 +17,22 @@ class TestFunction:
 
     qualname: str
     tags: tuple[str, ...]
-    has_marker: bool
+    dynamic: bool
     source_sha: str
 
 
 @dataclass(frozen=True)
 class _Marks:
     tags: tuple[str, ...] = ()
-    has_marker: bool = False
+    dynamic: bool = False
 
     def plus(self, other: "_Marks") -> "_Marks":
-        return _Marks(self.tags + other.tags, self.has_marker or other.has_marker)
+        return _Marks(self.tags + other.tags, self.dynamic or other.dynamic)
 
 
 def _marks(exprs: Iterable[ast.expr]) -> _Marks:
     tags: list[str] = []
-    found = False
+    dynamic = False
     for expr in exprs:
         if not isinstance(expr, ast.Call):
             continue
@@ -40,11 +40,12 @@ def _marks(exprs: Iterable[ast.expr]) -> _Marks:
         name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
         if name != _MARKER:
             continue
-        found = True
         first = expr.args[0] if expr.args else None
         if isinstance(first, ast.Constant) and isinstance(first.value, str):
             tags.append(first.value)
-    return _Marks(tuple(tags), found)
+        else:
+            dynamic = True
+    return _Marks(tuple(tags), dynamic)
 
 
 def _blocks(stmt: ast.stmt) -> list[list[ast.stmt]]:
@@ -104,5 +105,5 @@ def test_functions(source: bytes) -> list[TestFunction] | ParseFailure:
         first = min([node.lineno, *(d.lineno for d in node.decorator_list)])
         end = node.end_lineno or node.lineno
         text = "\n".join(lines[first - 1 : end])
-        result.append(TestFunction(name, marks.tags, marks.has_marker, sha256_hex(text.encode())))
+        result.append(TestFunction(name, marks.tags, marks.dynamic, sha256_hex(text.encode())))
     return result

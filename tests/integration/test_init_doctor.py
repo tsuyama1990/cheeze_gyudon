@@ -100,8 +100,9 @@ def test_doctor_passes_when_everything_is_wired(healthy: Path) -> None:
     [
         (".pre-commit-config.yaml", HYGIENE_ONLY + "      - id: ruff\n", "衛生フック"),
         (".github/workflows/ci.yml", "run: echo skipped\n", "CI のワークフロー"),
+        (".github/workflows/ci.yml", "run: echo hi  # scripts/gate.sh\n", "CI のワークフロー"),
     ],
-    ids=["duplicated-tools-in-pre-commit", "ci-does-not-call-the-gate"],
+    ids=["duplicated-tools-in-pre-commit", "ci-does-not-call-the-gate", "gate-only-in-a-comment"],
 )
 def test_doctor_names_the_broken_wiring(
     healthy: Path, path: str, content: str, broken: str
@@ -182,3 +183,27 @@ def test_ruleset_template_matches_the_design() -> None:
     workflow = yaml.safe_load(next((PROJECT / ".github" / "workflows").glob("*.yml")).read_text())
     assert set(contexts) <= set(workflow["jobs"])
     assert ruleset["conditions"]["ref_name"]["include"] == ["refs/heads/main"]
+
+
+@pytest.mark.requirement("REQ-2026-010-F09")
+def test_doctor_reads_yaml_workflows_and_survives_unreadable_ones(healthy: Path) -> None:
+    """L2-I54"""
+    workflows = healthy / ".github" / "workflows"
+    (workflows / "ci.yml").rename(workflows / "ci.yaml")
+    assert CliRunner().invoke(main, ["doctor"]).exit_code == 0
+    (workflows / "binary.yml").write_bytes(b"\xff\xfe\x00")
+    assert CliRunner().invoke(main, ["doctor"]).exit_code == 0
+    (workflows / "ci.yaml").write_bytes(b"\xff\xfe\x00")
+    result = CliRunner().invoke(main, ["doctor"])
+    assert result.exit_code == 1
+    assert len(failures(result.output)) == 1
+
+
+@pytest.mark.requirement("REQ-2026-010-F05")
+def test_init_outside_a_repo_reports_instead_of_crashing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(main, ["init"])
+    assert result.exit_code == 1
+    assert "E.repo" in result.output
