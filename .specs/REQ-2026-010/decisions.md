@@ -233,6 +233,11 @@ D1・D2・D6 の提案: [proposal_l1_flow.md](background/proposal_l1_flow.md)(�
 | DEC-028 | 2026-10-27 | 承認ファイルの形式 | 有効 | JSON。Pydantic のモデルが正で、スキーマは生成する(DEC-003 に沿う) | tsuyama1990 |
 | DEC-029 | 2026-10-27 | `gov` のコマンド体系(D8) | 有効 | 残すのは `init`、`doctor`、`status`、`check`(K・D・T・Q)、`hook` の 5 つ。廃止するのは `gate-check`、`escalate`、`draft-decision`、`redteam`、`review-status`、`audit-push`、`format-pr-comment`、`format-pr-summary`、`ci-verify` | tsuyama1990 |
 | DEC-030 | 2026-10-27 | 設計書のレビュー | 有効 | 事実: レビューを重ねるほど指摘が減る一方、版が増えた。問い: 起草後のレビューを何回、何で行うか。答え: 設計書を起草した時点で、DeepSeek のレビューを最大 2 回入れる。2 回で収束しない場合は、続けずに概念を見直す(`spirals.md` §1) | tsuyama1990 |
+| DEC-031 | 2026-10-27 | pre-commit の範囲(Q-L2-4、監査 #15) | 有効 | 事実: `gate.sh` と pre-commit が ruff、mypy、vulture、pytest を二重に持つ。答え: pre-commit は衛生フックだけにし、品質検査は `gate.sh` に一本化する | tsuyama1990 |
+| DEC-032 | 2026-10-27 | `no-commit-to-branch`(Q-L2-5、監査 #16) | 有効 | 事実: main への直接コミット禁止が全体設定のフック、pre-commit、ruleset の 3 か所にある。答え: pre-commit の `no-commit-to-branch` を外す。エージェントは全体設定のフックが止める。人間の直接コミットは、ruleset が使えるまで止まらない(backlog B-05) | tsuyama1990 |
+| DEC-033 | 2026-10-27 | `gov approve`(Q-L2-6) | 有効 | 答え: MVP では足さない。承認ファイルは人間が `sha256sum` で作る。積み残しは `backlog.md` B-01 | tsuyama1990 |
+| DEC-034 | 2026-10-27 | フックの強さ(Q-L2-7、MAJ-9) | 有効 | 方針: 警告を基本とし、致命的なものだけ義務・禁止にする(オーナー: 大手 LLM は警告があれば手順を意図的に飛ばさない。恐れるのはやり忘れ)。答え: ローカルのフックは基盤のエラー(`origin/main` 取得不能、`git` なし、`gov` の例外)で拒否せず警告にとどめ、拒否は K・D・T・Q.pragma の規則違反の commit・push だけにする。権威は CI の fail-closed。どの規則を義務・禁止に残すかの線引きは、実装前に再確認する | tsuyama1990 |
+| DEC-035 | 2026-10-27 | 変更行カバレッジの閾値(Q-L2-8) | 有効 | 答え: 全体のカバレッジと同じ値にする。キーは `[tool.jtc_gov]` の `diff_coverage_fail_under`(仮)。実測して調整する | tsuyama1990 |
 
 ## 訂正履歴
 

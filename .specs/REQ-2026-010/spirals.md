@@ -68,7 +68,7 @@
 |---|---|---|
 | 0 | 現状の棚卸し([background/as_is_inventory.md](background/as_is_inventory.md))、案([background/proposal_l1_flow.md](background/proposal_l1_flow.md))、spike(フックの配線、CI の改ざん、保護ルール) | 完了 |
 | 1 | L1(全体設計)とそのテスト仕様。8 回の改訂と 5 回のレビュー(Opus、DeepSeek)。第4版でパッチの連鎖に陥り、第5版で作り直した | **完了。ベースライン(DEC-026)**。正式な承認は、L1 に変更が入りうるスパイラル 2 の終わり |
-| 2 | L2(詳細設計)と、結合テスト仕様 | **設計書は完了**(DeepSeek のレビュー 2 回、致命 0。[reviews/](reviews/))。L1・L2 の正式な承認は、`03_architecture.md` §14 の小さな問い(Q-L2-4〜8)の確認とあわせて記録する |
+| 2 | L2(詳細設計)と、結合テスト仕様 | **設計書は完了**(DeepSeek のレビュー 2 回、致命 0。[reviews/](reviews/))。L1・L2 の正式な承認は、スパイラル 2 の終わりに記録する(小さな問い Q-L2-4〜8 は決定済み: DEC-031〜035) |
 | 3 | L3(クラス設計)と、単体テスト仕様(`04_detail_design.md`、`04_unit_tests.md`) | 着手(§7) |
 
 ## 5. スパイラル 2(L2)の計画
@@ -92,7 +92,7 @@
 **最初の小さな問い**: §6 を参照(この文書が正本。決まったら decisions.md に移す)。
 
 ## 6. L2 の未決の問い
-場所は [03_architecture.md](03_architecture.md) §14(Q-L2-4〜8)。決まったら decisions.md へ移す。L3 は、Q-L2-4〜8 の暫定の答えを前提に進め、確認で変わったら L3 を直す。
+Q-L2-4〜8 は決定済み(DEC-031〜035)。
 
 ## 7. スパイラル 3(L3)の計画
 
