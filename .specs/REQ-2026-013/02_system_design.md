@@ -1,7 +1,7 @@
 # L1 全体設計: 意思決定プロトコル
 
 要件: [01_req_spec.md](01_req_spec.md)。手動確認: [02_system_tests.md](02_system_tests.md)。決定(提案)は [decisions.md](decisions.md)、積み残しは [backlog.md](backlog.md)、レビューの採否は [reviews/adoption_log.md](reviews/adoption_log.md)。事例 2 の手順は [worked_example_k_c.md](worked_example_k_c.md)。
-状態: ドラフト第 3 版(レビュー第 2 回を反映)。**コードはない**(src の変更 0)。根拠の種類: **[原典]** / **[データ 日付]** / **[推論]** / **[決定 DEC-ID]**。
+状態: 採用(DEC-058〜063、2026-10-29。レビュー 3 回を反映)。**コードはない**(src の変更 0)。根拠の種類: **[原典]** / **[データ 日付]** / **[推論]** / **[決定 DEC-ID]**。
 
 ## 1. 問題
 | # | 起きたこと [データ 2026-10-29] | 仕組みの事実 |
