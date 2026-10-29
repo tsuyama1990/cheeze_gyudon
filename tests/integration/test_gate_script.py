@@ -35,7 +35,7 @@ def run_gate(sandbox: Path, **env: str) -> tuple[int, list[str]]:
     calls = sandbox / "calls.log"
     calls.write_text("")
     environment = {
-        **os.environ,
+        **{k: v for k, v in os.environ.items() if k != "GATE_BASE"},
         "PATH": f"{sandbox / 'bin'}:{os.environ['PATH']}",
         "CALLS": str(calls),
         **env,
