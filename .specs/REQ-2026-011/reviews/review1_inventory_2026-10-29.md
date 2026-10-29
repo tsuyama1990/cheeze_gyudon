@@ -104,7 +104,7 @@
   # cheeze_gyudon/pyproject.toml
   select = ["ALL"]
   # (tests/**/* のみ PLR2004 を ignore)
-  
+
   # matome/pyproject.toml
   ignore = [ ..., "PLR2004", ... ]
   ```
