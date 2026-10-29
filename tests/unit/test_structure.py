@@ -1,11 +1,11 @@
 import ast
-import re
 from pathlib import Path
 
 import pytest
 
+from tests.support.specs import CLOSED, designed_modules
+
 SRC = Path(__file__).parents[2] / "src" / "jtc_gov"
-DETAIL_DESIGN = Path(__file__).parents[2] / ".specs" / "REQ-2026-010" / "04_detail_design.md"
 LAYERS = ("domain", "derive", "checks", "adapters")
 PURE_LAYERS = LAYERS[:3]
 IO_MODULES = {
@@ -69,14 +69,7 @@ def test_imports_point_down_only(path: Path) -> None:
 )
 def test_every_module_is_in_the_detail_design(path: Path) -> None:
     """L1-S03: the reverse direction (designed but missing) is checked when its adapter lands."""
-    headings = set(
-        re.findall(
-            r"^### [\d.a-z]+ `([a-z_/]+\.py)`",
-            DETAIL_DESIGN.read_text(encoding="utf-8"),
-            re.MULTILINE,
-        )
-    )
-    assert f"{path.parent.name}/{path.name}" in headings
+    assert f"{path.parent.name}/{path.name}" in designed_modules()
 
 
 @pytest.mark.requirement("REQ-2026-010-F06")
@@ -117,12 +110,6 @@ def test_module_imports_have_no_cycles() -> None:
 @pytest.mark.requirement("REQ-2026-010-F08")
 @pytest.mark.spec("L1-S03")
 def test_every_designed_module_exists() -> None:
-    headings = set(
-        re.findall(
-            r"^### [\d.a-z]+ `([a-z_/]+\.py)`",
-            DETAIL_DESIGN.read_text(encoding="utf-8"),
-            re.MULTILINE,
-        )
-    )
-    missing = sorted(h for h in headings if not (SRC / h).is_file())
+    """Only closed requirements: an open one is still adding its modules."""
+    missing = sorted(h for h in designed_modules({CLOSED}) if not (SRC / h).is_file())
     assert missing == []
