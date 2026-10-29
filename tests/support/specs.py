@@ -13,6 +13,7 @@ PLAN_FILES = {
 # Plan rows that are checked by hand. Add a requirement here when it gets approved.
 MANUAL_ROWS = {
     "REQ-2026-010": {"L1-C01", "L1-C03", "L1-C06", "L1-M01"},
+    "REQ-2026-011": {"L1-M01", "L1-M02", "L1-M03", "L1-M04", "L1-M05"},
 }
 
 

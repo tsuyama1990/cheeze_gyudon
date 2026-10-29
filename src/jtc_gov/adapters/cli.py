@@ -9,7 +9,7 @@ from pathlib import Path
 
 import click
 
-from jtc_gov.adapters import claude_hook
+from jtc_gov.adapters import claude_hook, global_hook
 from jtc_gov.adapters.repo_git import DEFAULT_BASE, WORKTREE, GitRepo, find_root
 from jtc_gov.adapters.report import findings_json, format_findings, format_status
 from jtc_gov.checks import run_all
@@ -117,10 +117,10 @@ def render_gitattributes() -> str:
 
 
 @main.command(name="hook")
-@click.argument("event", type=click.Choice(claude_hook.EVENTS))
+@click.argument("event", type=click.Choice(claude_hook.EVENTS + global_hook.EVENTS))
 def hook_command(event: str) -> None:
     """Claude Code のフックの入口(標準入力の JSON)。"""
-    claude_hook.main(event)
+    (global_hook if event in global_hook.EVENTS else claude_hook).main(event)
 
 
 @main.command()
