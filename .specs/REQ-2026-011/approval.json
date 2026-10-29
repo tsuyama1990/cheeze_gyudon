@@ -1,0 +1,14 @@
+{
+  "requirement": "REQ-2026-011",
+  "state": "open",
+  "files": {
+    "01_acceptance_tests.feature": "d4be14ee9f70517b3ba0ccf1e6aaca741d566fd3d329a4adadcc6ba57fe4c984",
+    "01_req_spec.md": "bb6af5d7f1e72f3d540c1792a930d7c135d260a5d279484b26df36860ee366aa",
+    "02_system_design.md": "0e03341abdd23eb3283c46e40258fb71dc88334b8ed22dd54918e14164dd64f1",
+    "02_system_tests.md": "7abc4205da4add464e9338091e4204b34ffeaed0e2658c84cb79548732367f35",
+    "03_architecture.md": "e34daf74ba2d5a621da36d4ffb56c04462bd64d31bb6953c5f8292492e9bc4ee",
+    "03_integration_tests.md": "dd3b9821232460596e78ce711e92ef58ba3f6c5502a327561d408211f3dbb781",
+    "04_detail_design.md": "36f6d9e2a30cdc3a9c7924fa7236d6066b4326968c98b90a68ed576b9bc8985a",
+    "04_unit_tests.md": "978ae64469ad8b2a14019bfdf3cf8a885e670a5fcac75727afc853ab0e16a23f"
+  }
+}
