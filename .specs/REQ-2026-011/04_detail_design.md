@@ -3,7 +3,7 @@
 対になるテスト仕様: [04_unit_tests.md](04_unit_tests.md)(L3 ↔ 単体)。入力: [03_architecture.md](03_architecture.md)。
 定数は各モジュールの先頭に `Final` で置く(既存の `claude_hook.py` と同じ流儀)。ロジックの中に数値や文字列を直接書かない。
 
-## 1. `derive/git_commands.py`(純粋)
+### 1. `derive/git_commands.py`(純粋)
 ```python
 @dataclass(frozen=True)
 class GitInvocation:
@@ -17,7 +17,7 @@ def parse_git_invocations(command: str) -> list[GitInvocation]
 - 定数: `SEGMENT_SEPARATORS = (";", "&&", "||", "|", "\n")`、`WRAPPER_WORDS = ("env", "command", "sudo")`、`OPTIONS_WITH_VALUE = ("-C", "-c", "--git-dir", "--work-tree", "--namespace")`(`=` 付きの形も読み飛ばす)、`OPTIONS_WITHOUT_VALUE_PREFIX = "-"`。
 - `split_segments`: 引用符(`'`、`"`)とバックスラッシュのエスケープの外にある区切りで分割する。引用が閉じていなければ、最後の区間を引用の中として扱い、そのまま返す。
 - `parse_git_invocations`: 区間ごとに `shlex.split(posix=True)`。`ValueError` なら、その区間を読み飛ばす。
-  1. 区間の先頭から、`WRAPPER_WORDS`、`NAME=value` の形、先頭が `\` の語(`\git` → `git`)を読み飛ばす。
+  1. 区間の先頭から、`WRAPPER_WORDS`、`NAME=value` の形を読み飛ばす(`\git` は `shlex` が `git` にする)。
   2. 先頭が `cd` なら、`current = normpath(join(current, 引数1))`(引数がなければ `~` 相当で変更しない)。次の区間へ。`current` は `None` から始める。`normpath` は `posixpath` を使い、`current` が `None` の相対パスは、そのまま保つ。
   3. 先頭が `git` なら、以降の字句を左から読む。`-C <dir>` は `directory = join(directory or current, dir)`。他の `OPTIONS_WITH_VALUE` は値ごと、`-` で始まるものは単独で読み飛ばす。最初の `-` で始まらない字句がサブコマンド。残りが `args`。
   4. 先頭が `git` 以外(`echo git commit` を含む)なら何も作らない。
@@ -27,7 +27,7 @@ def parse_git_invocations(command: str) -> list[GitInvocation]
 - `hook`: `click.Choice` の選択肢を `claude_hook.EVENTS + global_hook.EVENTS` にする。`global_hook.EVENTS` のイベントは `global_hook.main(event)`、それ以外は既存の `claude_hook.main(event)`。
 - `init`、`doctor` は変えない(DEC-053)。
 
-## 3. `adapters/global_hook.py`
+### 3. `adapters/global_hook.py`
 ```python
 EVENTS: Final = ("global-guard",)
 PROTECTED_BRANCHES: Final = ("main", "master")
