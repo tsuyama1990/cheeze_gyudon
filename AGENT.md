@@ -25,6 +25,7 @@ Common rules. The same table is in every repository; change all copies together 
 | R16 | Do not weaken tests to make code pass. | text only |
 | R17 | When you replace code, delete the old code in the same commit. | gate (dead-code check, partial) |
 | R18 | Delegate to a separate worktree and branch; the receiver re-runs the gate and does not trust self-reports. | text only (R07 re-runs the gate) |
+| R19 | Escalate to a human only for human acts (approval, push, merging a change that alters results), anything that leaves the machine, or anything irreversible. Otherwise decide with a checkpoint commit and, where it matters, one ledger line, and keep going. Approval is the human's answer to one question; the agent does the hashing and writing (replaces C1 of REQ-2026-010 via DEC-062). Details: `.specs/REQ-2026-013/02_system_design.md` in the jtc-gov repository. | text only |
 <!-- /gov:rules -->
 
 ## This repository
