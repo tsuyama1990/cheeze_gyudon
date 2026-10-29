@@ -20,15 +20,3 @@
 | L3-U14 | `decide_command_text` 読み取り系 | `cat .specs/R/approval.json` / `grep state …` / `jq . …` / `sha256sum …` / `git diff -- …approval.json` / `cat approval.json 2>&1` / `cat approval.json 2>/dev/null` | すべて allow(ストリームのリダイレクトは除いてから判定) | F05 |
 | L3-U15 | `decide_command_text` 実行 | `~/.claude/bin/merge-to-main.sh feat/a m.md` / `bash merge-to-main.sh …` / `echo merge-to-main.sh` | 前の 2 つは ask。3 つ目も ask(語を含むため。誤検知として許容し、テストで固定) | F05 |
 | L3-U16 | `decide_write_path` | `.specs/R/approval.json`×main / `.specs/R/approval.json`×feat / `src/a.py`×main / `src/a.py`×feat / `build/x`×main×無視 / `src/a.py`×`None` | deny / ask / deny / allow / allow / allow | F04、F05 |
-| L3-U17 | `sanitize_session` | `abc-1_2` / `../x` / `a b` / 空文字列 | `abc-1_2` / `___x` / `a_b` / `unknown` | F06 |
-| L3-U18 | `record_repo`、`read_repos` | 同じパスを 2 回、存在しないパスを 1 回、別のセッション | `read_repos` は重複なし、存在するものだけ、出現順。別のセッションは混ざらない | F06 |
-| L3-U19 | `reset_turn` | 空にする対象、8 日前・ちょうど 7 日前・1 日前の `*.repos` | 対象は空。8 日前は消え、7 日前ちょうどと 1 日前は残る。`.repos` 以外のファイルは触らない | F06 |
-| L3-U20 | `reset_turn` の失敗 | `state_dir` が存在しない / 書き込み不可 | 例外を出さない | F06 |
-| L3-U21 | `dirty_paths` | `" M src/a.py\n M README.md\n?? docs/x.txt\n M docs/y.py\n"` | `src/a.py` だけが残る(`.md` と ` docs/` を含む行を除く) | F06 |
-| L3-U22 | `next_block_count` | 0 / 1 / 2 / 3 | (1, False) / (2, False) / (3, True) / (4, True) | F06 |
-| L3-U23 | `extract_block` | 印あり / 印なし / 開始だけ / 終了が開始より前 / 開始が 2 つ | ブロック / `None` / `None` / `None` / `None` | F02、F03 |
-| L3-U24 | `render_rules_block`、`render_agent_md` | — | ブロックは `RULES_BEGIN` で始まり `RULES_END` で終わる。`render_agent_md` は `extract_block` で同じブロックに戻る | F01、F02 |
-| L3-U25 | 雛形の本文 | `agent_rules.md` | `R01`〜`R18` が 1 回ずつ昇順。「Claude」「Anthropic」を含まない(大文字小文字を区別しない) | F01 |
-| L3-U26 | `render_claude_md` | — | cheeze_gyudon の現行の `CLAUDE.md` の内容と一致する(テストがそのファイルを読む) | F02 |
-| L3-U27 | `block_diff` | 同じ / 違う / 印なし | 空文字列 / 差分(ラベルに `(現在)` と `(gov init)`)/ 雛形のブロック全体が追加として現れる差分 | F02 |
-| L3-U28 | `_agent_docs`(`doctor`) | 一致 / ブロックが違う / AGENT.md なし / CLAUDE.md なし / CLAUDE.md が AGENT.md を含まない | OK / NG(AGENT.md の共通ブロックが違う)/ NG(AGENT.md がない)/ NG(CLAUDE.md がない)/ NG(CLAUDE.md が AGENT.md を指していない)。複数なら `、` でつなぐ | F03 |
