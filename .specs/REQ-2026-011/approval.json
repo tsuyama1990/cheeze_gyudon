@@ -1,6 +1,6 @@
 {
   "requirement": "REQ-2026-011",
-  "state": "open",
+  "state": "closed",
   "files": {
     "01_acceptance_tests.feature": "d4be14ee9f70517b3ba0ccf1e6aaca741d566fd3d329a4adadcc6ba57fe4c984",
     "01_req_spec.md": "bb6af5d7f1e72f3d540c1792a930d7c135d260a5d279484b26df36860ee366aa",
