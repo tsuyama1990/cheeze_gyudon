@@ -20,6 +20,7 @@ _GLOBS: Final = (
     ".mypy.ini",
     "**/conftest.py",
     "AGENT.md",
+    "AGENTS.md",
     "CLAUDE.md",
     "src/jtc_gov/**",
 )

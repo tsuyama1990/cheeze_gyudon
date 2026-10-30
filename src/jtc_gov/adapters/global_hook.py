@@ -133,18 +133,35 @@ def _guard_bash(cwd: Path, command: str) -> Decision:
     )
 
 
-def guard(payload: dict[str, object]) -> HookOutcome:
+@dataclass(frozen=True)
+class ToolCall:
+    cwd: str
+    command: str | None = None
+    path: str | None = None
+
+
+def decide_call(call: ToolCall) -> Decision:
+    if call.path is not None:
+        return _guard_write(Path(call.cwd), call.path)
+    if call.command is not None:
+        return _guard_bash(Path(call.cwd), call.command)
+    return ALLOW
+
+
+def claude_call(payload: dict[str, object]) -> ToolCall | None:
     cwd, tool_input = payload.get("cwd"), payload.get("tool_input")
     if not isinstance(cwd, str) or not isinstance(tool_input, dict):
-        return HookOutcome(0)
+        return None
     raw = tool_input.get("file_path") or tool_input.get("notebook_path")
     command = tool_input.get("command")
     if payload.get("tool_name") in WRITE_TOOLS and isinstance(raw, str):
-        decision = _guard_write(Path(cwd), raw)
-    elif payload.get("tool_name") == "Bash" and isinstance(command, str):
-        decision = _guard_bash(Path(cwd), command)
-    else:
-        return HookOutcome(0)
+        return ToolCall(cwd, path=raw)
+    if payload.get("tool_name") == "Bash" and isinstance(command, str):
+        return ToolCall(cwd, command=command)
+    return None
+
+
+def _claude_outcome(decision: Decision) -> HookOutcome:
     if decision.kind == "deny":
         return HookOutcome(EXIT_REJECT, stderr=f"Blocked: {decision.reason}")
     if decision.kind == "ask":
@@ -159,6 +176,19 @@ def guard(payload: dict[str, object]) -> HookOutcome:
     return HookOutcome(0)
 
 
+def guard(payload: dict[str, object]) -> HookOutcome:
+    call = claude_call(payload)
+    return HookOutcome(0) if call is None else _claude_outcome(decide_call(call))
+
+
+def emit(outcome: HookOutcome) -> NoReturn:
+    if outcome.stdout:
+        sys.stdout.write(outcome.stdout + "\n")
+    if outcome.stderr:
+        sys.stderr.write(outcome.stderr + "\n")
+    raise SystemExit(outcome.exit_code)
+
+
 def main(event: str) -> NoReturn:
     outcome = HookOutcome(0)
     try:
@@ -167,8 +197,4 @@ def main(event: str) -> NoReturn:
             outcome = guard(payload)
     except Exception:  # noqa: BLE001 - the hook is advisory (DEC-002)
         outcome = HookOutcome(0)
-    if outcome.stdout:
-        sys.stdout.write(outcome.stdout + "\n")
-    if outcome.stderr:
-        sys.stderr.write(outcome.stderr + "\n")
-    raise SystemExit(outcome.exit_code)
+    emit(outcome)
