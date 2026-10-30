@@ -26,3 +26,19 @@ def write(cwd: Path, file_path: str, tool: str = "Write") -> str:
 
 def payload(cwd: Path, tool: str, tool_input: dict[str, str]) -> str:
     return json.dumps({"tool_name": tool, "tool_input": tool_input, "cwd": str(cwd)})
+
+
+def agy_run(workspace: Path, command: str, cwd: str | None = None) -> str:
+    args = {"CommandLine": command} | ({"Cwd": cwd} if cwd is not None else {})
+    return agy_payload(workspace, "run_command", args)
+
+
+def agy_write(workspace: Path, path: str, tool: str = "write_to_file") -> str:
+    key = "Path" if tool in ("write_file", "edit_file") else "TargetFile"
+    return agy_payload(workspace, tool, {key: path})
+
+
+def agy_payload(workspace: Path, tool: str, args: dict[str, str]) -> str:
+    return json.dumps(
+        {"toolCall": {"name": tool, "args": args}, "workspacePaths": [str(workspace)]}
+    )
