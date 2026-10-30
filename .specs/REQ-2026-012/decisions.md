@@ -9,3 +9,4 @@
 | DEC-056 | 2026-10-29 | agy が規則を読むための方法 | 有効 | 事実: agy が自動で読むのは `GEMINI.md`、`AGENTS.md`(複数形)、`.agents/rules/*.md` で、`AGENT.md`(単数)は読まれない [原典: 同梱ドキュメント]。答え: `AGENTS.md` を 1 行のポインタとして足す(`CLAUDE.md` と同じ形)。`AGENT.md` の改名はしない。決定: 利用者、2026-10-29(「はい」) |
 | DEC-057 | 2026-10-29 | 許可のときの出力 | 有効 | 事実: agy の `decision: allow` は「Automatically allow the tool execution」で、agy 自身の確認を飛ばす恐れがある。答え: 許可のときは何も出力しない。何も出力しないときの agy の挙動は未確認(L1-M02)で、設計書に未確認と明記する |
 | (作業記録) | 2026-10-29 | 実機の確認 | — | `agy-cli --dangerously-skip-permissions` でフックの実機確認(一時ディレクトリのみ)を 2 回試みたが、権限の分類器に止められ未実施。迂回していない。利用者が Bash の許可ルールを設定すれば実施できる |
+| DEC-065 | 2026-10-30 | グローバル `hooks.json` の設置 | AI | 事実: `~/.gemini/config/hooks.json` に `gov hook agy-pre-tool-use` を設置した(旧設定は `~/.gemini/config.backup-2026-10-30` に退避)。ダミー入力では拒否・確認・無出力を確認済み。agy 実機での読み込みと挙動(L1-M01〜M04)は未観測。戻す: `hooks.json` を削除する。見直し: agy を使った際の観測で M01〜M04 を記録する |
