@@ -6,7 +6,7 @@ import pytest
 AGENT_MD = Path(__file__).parents[2] / "AGENT.md"
 BEGIN = "<!-- gov:rules v1 -->"
 END = "<!-- /gov:rules -->"
-RULE_COUNT = 19
+RULE_COUNT = 20
 AGENT_PRODUCTS = re.compile(r"claude|anthropic|gemini|antigravity|agy", re.IGNORECASE)
 
 
