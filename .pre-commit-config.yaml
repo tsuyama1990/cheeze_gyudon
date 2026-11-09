@@ -1,4 +1,6 @@
 # Hygiene only. Quality checks live in scripts/gate.sh (DEC-031).
+# skills/yomiyasu is vendored upstream code; keep its bytes as published (DEC-068).
+exclude: ^skills/yomiyasu/
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
