@@ -124,16 +124,17 @@ DOC_TYPE_SKIP_RULES = {
     "slides": ("bare_verb_chain", "bold_label_list", "cleft_list_ending", "count_declaration", "excess_list",
                "short_summary_heading"),
     # 2.2.0: 読み物、宣伝文、台詞では、見出しの短い比喩（metaphor_label）と動詞を並べる型（bare_verb_chain）を外す
-    "essay": ("bare_verb_chain", "metaphor_label"),
+    "essay": ("bare_verb_chain", "colloquial_verb", "metaphor_label", "question_heading"),
     "formal": (),
     # 紹介記事・宣伝文では書き手の絵文字を残す（diff の勢いの検査は絵文字が減ると候補にするので、lint の
     # 絵文字の候補と食い違わせない。diff の詰めで測って決めた）。
     # 評価の語を短く重ねる型（「安い。うまい。早い。」。fragment_run）も勢いとして残す（作者の判断）
-    "promo": ("bare_verb_chain", "emoji_prohibited", "fragment_run", "metaphor_label"),
-    "mail": ("emoji_prohibited",),
+    "promo": ("bare_verb_chain", "colloquial_verb", "emoji_prohibited", "fragment_run", "metaphor_label", "question_heading"),
+    "mail": ("colloquial_verb", "emoji_prohibited"),
     "paper": (),
     # 2.2.0: 台詞では、短い文を重ねる形（fragment_run）と同じ語尾の続き（sentence_end_repetition）が普通に出る
-    "script": ("bare_verb_chain", "fragment_run", "metaphor_label", "sentence_end_repetition"),
+    "script": ("bare_verb_chain", "colloquial_verb", "fragment_run", "metaphor_label", "question_heading",
+               "sentence_end_repetition"),
 }
 # meta_filler 全体を外すと誇張や無関係な前置きまで残すため、既存の型の説明で5型だけを選ぶ。
 # これらは mail では相手への返信・結びとして普通の形。宛名、挨拶、署名、クッション言葉の専用規則は元からない。
@@ -3847,6 +3848,7 @@ _V220_BUILTIN_LISTS = {
     ),
 }
 # 2.3.0: renyo_noun の一覧（references/lists/renyo-nouns.txt と同じ。1項目は「語」か「語<TAB>外す後ろの字」）
+_V220_BUILTIN_LISTS["metaphor-nouns"] = ("持ち帰り", "入国審査")
 _V220_BUILTIN_LISTS["renyo-nouns"] = tuple((
     "確かめ 直し 比べ 測り 補い 決め 選び 集め 探し 捜し 整え 揃え そろえ 重ね 外し 戻し 削り 消し 残し 伏せ "
     "伝え 預け 並べ 分け 混ぜ 減らし 増やし 広げ 縮め 伸ばし 延ばし 遅らせ 終え 続け 動かし 移し 貼り 挙げ 数え 改め 入れ "
@@ -4803,6 +4805,49 @@ def _v230_renyo_findings(analysis):
 # 見るのは新しい語の規則と同じ見える文字（カギ括弧と引用符の中、英数字の識別子を伏せた字）。引用（> の行）、コード、frontmatter、
 # HTML は見ない。1行に1件で、当たった言い方を _words に並べる。
 _V250_RULES = ("ai_phrase",)
+# local: 説明・報告・決まりの文書で、口語と比喩が回りくどさの元になった型（利用者の直しから。info で、点数に入れない）。
+# question_heading: 本文の見出しが問いの形（なぜ〜のか）。文書の初めの h1（題）は見ない。
+# colloquial_verb: 「効く」の活用（効果、効率、有効、無効などの漢語は見ない）。判定や報告では「有効」や、何がどう変わったかで書く。
+# metaphor_noun: references/lists/metaphor-nouns.txt の語（持ち帰り など）。
+_LOCAL_RULES = ("colloquial_verb", "metaphor_noun", "question_heading")
+_QUESTION_HEADING = re.compile(r"^(?:なぜ|どう|どこ|何[がをでにの]|いつ)|(?:のか|か)[？?]?$|[？?]$")
+_COLLOQUIAL_KIKU = re.compile(r"(?<![有無失特即奏時実発])効(?:か(?:な|ず|せ)|き(?:目|そう|ま|す|に)|く(?![率果能用力])|け(?:ば|る)|い(?:た|て))")
+_LOCAL_MESSAGES = {
+    "question_heading": "問いの形の見出し。説明や決まりの文書では、名詞で項目名にする（なぜ〜しないのか → 〜しない理由）",
+    "colloquial_verb": "口語の「効く」。判定は「有効」「無効」、説明は何がどう変わったかで書く",
+    "metaphor_noun": "比喩の名詞（{}）。何を指すかをそのまま書く（持ち帰り → 学び）",
+}
+
+
+def _local_register_findings(analysis):
+    """question_heading、colloquial_verb、metaphor_noun の候補。"""
+    rows = analysis["lines"]
+    nouns = _v220_load_list("metaphor-nouns")[0]
+    title_seen = False
+    out = []
+    for row in rows:
+        if row["kind"] not in ("paragraph", "list", "heading", "table") or row["quote_depth"]:
+            continue
+        line_no = row["line"]
+        scan = _v220_scan_text(analysis, line_no)
+        snippet = row["raw"].strip()
+        if row["kind"] == "heading":
+            is_title = not title_seen and snippet.startswith("# ")
+            title_seen = True
+            text = scan.strip().lstrip("#").strip()
+            if not is_title and _QUESTION_HEADING.search(text):
+                out.append({"rule": "question_heading", "line": line_no, "severity": "info",
+                            "message": _LOCAL_MESSAGES["question_heading"], "snippet": snippet, "_words": (text,)})
+        match = _COLLOQUIAL_KIKU.search(scan)
+        if match:
+            out.append({"rule": "colloquial_verb", "line": line_no, "severity": "info",
+                        "message": _LOCAL_MESSAGES["colloquial_verb"], "snippet": snippet, "_words": ("効く",)})
+        hit = [noun for noun in nouns if noun in scan]
+        if hit:
+            out.append({"rule": "metaphor_noun", "line": line_no, "severity": "info",
+                        "message": _LOCAL_MESSAGES["metaphor_noun"].format("、".join(hit)), "snippet": snippet,
+                        "_words": tuple(hit)})
+    return out
 _AI_PHRASE_MESSAGE = "AIの文章によく出る言い回し（当たった言い方: {}）" + _V220_MESSAGE_TAIL
 _AI_PHRASE_HEAD = _V220Lazy(r"見立て|潜|招く|欠かせない存在|挙動を|なんよ|を[一-龥々]{2,}[。．]")
 # 判断した人と招く人や組織の語。語のあとに「たち」「ら」「ども」「陣」「側」が付いてもよい
@@ -5169,7 +5214,8 @@ def _v220_document_findings(analysis, doc_type):
 
 
 # 語の一覧の allow.txt の語で外す規則（規則ID の順。context.words.allow_removed の並び）
-_ALLOW_RULES = ("ai_phrase", "calque", "katakana_term", "metaphor_label", "metaphor_verb", "project_term", "renyo_noun",
+_ALLOW_RULES = ("ai_phrase", "calque", "colloquial_verb", "katakana_term", "metaphor_label", "metaphor_noun", "metaphor_verb",
+                "project_term", "renyo_noun",
                 "slop_vocabulary", "translated_term")
 _LABEL_WORD = re.compile(r"「([^」]+)」")
 # 語の一覧の flag.txt の語の message。その行に出た flag の語を「語の一覧（flag.txt）の語（依存先、承認）」のように並べる
@@ -5698,6 +5744,7 @@ def lint_text(text: str, *, doc_type=None, reader=None, words=None) -> Dict[str,
     findings.extend(_v220_word_findings(analysis))
     findings.extend(_v230_renyo_findings(analysis))
     findings.extend(_v250_ai_phrase_findings(analysis, doc_type))
+    findings.extend(_local_register_findings(analysis))
     findings.extend(_v240_slide_comma_findings(analysis, findings, doc_type))
     findings.extend(_v220_shape_findings(analysis, findings, doc_type))
     findings.extend(_v220_document_findings(analysis, doc_type))
@@ -5735,7 +5782,8 @@ def lint_text(text: str, *, doc_type=None, reader=None, words=None) -> Dict[str,
     # 2.2.0 の規則の候補は点数を計算する前に除く
     rule_penalty_score = _rule_penalty_score([finding for finding in findings
                                               if finding["rule"] not in _V220_RULES and finding["rule"] not in _V230_RULES
-                                              and finding["rule"] not in _V240_RULES and finding["rule"] not in _V250_RULES],
+                                              and finding["rule"] not in _V240_RULES and finding["rule"] not in _V250_RULES
+                                              and finding["rule"] not in _LOCAL_RULES],
                                              prose_chars, dash_hits)
     counts = {"error": 0, "warn": 0, "info": 0}
     for finding in findings:

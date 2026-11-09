@@ -139,3 +139,7 @@ SKILL.md の Step 3 と Step 4 で `yomiyasu_check.py run` の出力の候補を
 - 段落と箇条書きの変化、つなぎ言葉と指示語のつながり
 - コード、引用（かぎかっこの中の会話や引いた言葉も含む）、URL、表やスキーマの名称
 - 太字が表示される書き方か
+
+## local の規則（question_heading、colloquial_verb、metaphor_noun）
+
+どれも info で、点数に入れない。直し方は SKILL.md「比喩動詞の具体化」の、説明・報告の文書で直す3つの型。essay、promo、script では question_heading と colloquial_verb を外し、mail では colloquial_verb を外す。文字どおりの意味で使っている語は、`.yomiyasu-words/allow.txt` に入れて外す。
